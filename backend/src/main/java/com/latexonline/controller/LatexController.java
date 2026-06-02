@@ -1,0 +1,38 @@
+package com.latexonline.controller;
+
+import com.latexonline.service.LatexService;
+import org.springframework.http.*;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api")
+public class LatexController {
+
+    private final LatexService latexService;
+
+    public LatexController(LatexService latexService) {
+        this.latexService = latexService;
+    }
+
+    @PostMapping("/compile")
+    public ResponseEntity<?> compile(@RequestBody Map<String, String> body) {
+        try {
+            String title = body.getOrDefault("title", "");
+            String content = body.getOrDefault("body", "");
+            String organization = body.getOrDefault("organization", "");
+            String date = body.getOrDefault("date", "");
+
+            byte[] pdf = latexService.compile(title, content, organization, date);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDisposition(ContentDisposition.inline().filename("document.pdf").build());
+
+            return ResponseEntity.ok().headers(headers).body(pdf);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+}
