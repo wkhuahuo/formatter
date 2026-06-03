@@ -37,7 +37,7 @@
       <div class="form-group">
         <label>正文内容</label>
         <textarea v-model="form.body" rows="10"
-          placeholder="请输入正文内容，段落之间用空行分隔"
+          placeholder="正文内容。一、开头为一级标题（黑体）。（一）开头为二级标题（楷体）。也可以用 # 或 ## 手动标记。段落之间用空行分隔。"
           @input="scheduleCompile"></textarea>
       </div>
 

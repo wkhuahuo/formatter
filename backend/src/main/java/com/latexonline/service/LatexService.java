@@ -29,15 +29,16 @@ public class LatexService {
 
         boolean hasRedHeader = isSet(redHeader);
 
-        // --- Page geometry ---
+        // --- Page geometry per GB/T 9704-2012 ---
+        // 版心 156mm×225mm, 天头37mm, 地脚35mm, 订口28mm, 翻口26mm
         if (hasRedHeader) {
             tex.append("""
                     \\geometry{
                       a4paper,
                       top=4.5cm,
-                      bottom=2.54cm,
-                      left=3.18cm,
-                      right=3.18cm,
+                      bottom=3.5cm,
+                      left=2.8cm,
+                      right=2.6cm,
                       headheight=2.5cm,
                       headsep=0.5cm,
                       footskip=1.75cm
@@ -47,11 +48,10 @@ public class LatexService {
             tex.append("""
                     \\geometry{
                       a4paper,
-                      top=2.54cm,
-                      bottom=2.54cm,
-                      left=3.18cm,
-                      right=3.18cm,
-                      footskip=1.75cm
+                      top=3.7cm,
+                      bottom=3.5cm,
+                      left=2.8cm,
+                      right=2.6cm
                     }
                     """);
         }
@@ -96,22 +96,25 @@ public class LatexService {
             tex.append("\\thispagestyle{redfirst}\n");
         }
 
-        // --- Title: 宋体二号加粗居中, 段前1.5行(42pt), 段后0.5行(14pt) ---
-        // 基于标题字号22pt, 行距28pt计算
-        // 标题中空格用 \hspace{0.5em} 保留，方便调整字间距
+        // --- Title: GB/T 9704-2012 方正小标宋二号加粗居中 ---
+        // 标题中空格用 \quad{} 保留
+        // 与正文间距1行(28pt)
         if (isSet(title)) {
-            tex.append("\\vspace{42pt}\n");
-            tex.append("{\\centering\\songti\\fontsize{22pt}{28pt}\\selectfont\\bfseries ");
+            tex.append("\\begin{center}\n");
+            tex.append("{\\songti\\fontsize{22pt}{28pt}\\selectfont\\bfseries ");
             tex.append(escape(title).replace(" ", "\\quad{}"));
             tex.append("\\par}\n");
+            tex.append("\\end{center}\n");
             tex.append("\\vspace{14pt}\n");
         }
 
-        // --- Body: 仿宋三号, 顶格不缩进 ---
+        // --- Body: GB/T 9704-2012 ---
+        // 仿宋三号 16pt, 固定行距28pt, 首行缩进2字符
+        // 一级标题(一、): 黑体三号, 二级((一)): 楷体三号
         tex.append("\\fangsong\\fontsize{16pt}{28pt}\\selectfont\n");
-        tex.append("\\setlength{\\parindent}{0pt}\n");
+        tex.append("\\setlength{\\parindent}{2\\ccwd}\n");
         if (isSet(body)) {
-            tex.append("\\noindent{}").append(body.replace("\n", "\n\n")).append("\n");
+            tex.append(formatBody(body));
         }
 
         // --- Closing: 仿宋三号右对齐 ---
@@ -207,6 +210,58 @@ public class LatexService {
         deleteDir(workDir);
 
         return pdfBytes;
+    }
+
+    // Format body text per GB/T 9704-2012:
+    // 一级标题 "一、": \heiti, 二级 "(一)": \kaishu, 三级 "1.": default
+    private String formatBody(String body) {
+        StringBuilder out = new StringBuilder();
+        String[] paragraphs = body.split("\n");
+        for (int i = 0; i < paragraphs.length; i++) {
+            String p = paragraphs[i].trim();
+            if (p.isEmpty()) {
+                out.append("\n\n");
+                continue;
+            }
+            String cmd = classifyHeading(p);
+            // Strip manual markers from display text
+            String display = p;
+            if (p.startsWith("## ")) {
+                display = p.substring(3);
+            } else if (p.startsWith("# ")) {
+                display = p.substring(2);
+            }
+            if (cmd != null) {
+                out.append("{\\").append(cmd).append(" ").append(escape(display)).append("}\n\n");
+            } else {
+                out.append(escape(display)).append("\n\n");
+            }
+        }
+        return out.toString();
+    }
+
+    // Returns "heiti" for 一级标题, "kaishu" for 二级, null for body text
+    // Supports both auto-detection and manual markers:
+    //   auto: "一、..." → heiti, "（一）..." → kaishu
+    //   manual: "# 一、..." → heiti, "## （一）..." → kaishu
+    private String classifyHeading(String p) {
+        // Manual marker: ## for level 2
+        if (p.startsWith("## ")) {
+            return "kaishu";
+        }
+        // Manual marker: # for level 1
+        if (p.startsWith("# ")) {
+            return "heiti";
+        }
+        // Auto-detect: 一级标题 "一、", "十一、", "二十一、" etc.
+        if (p.matches("^[一二三四五六七八九十]{1,6}、.*")) {
+            return "heiti";
+        }
+        // Auto-detect: 二级标题 "（一）", "（十一）" etc.
+        if (p.matches("^（[一二三四五六七八九十]{1,6}）.*")) {
+            return "kaishu";
+        }
+        return null;
     }
 
     private boolean isSet(String s) {
