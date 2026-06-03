@@ -62,7 +62,18 @@
 
       <div class="section-divider"></div>
 
-      <!-- 5. 抄送 -->
+      <!-- 5. 附注 -->
+      <div class="section-title">附注</div>
+      <div class="form-group">
+        <label>附注内容</label>
+        <input v-model="form.note" type="text"
+          placeholder="例如：此件发至县级。不需要请留空"
+          @input="scheduleCompile" />
+      </div>
+
+      <div class="section-divider"></div>
+
+      <!-- 6. 抄送 -->
       <div class="section-title">抄送</div>
       <div class="form-group">
         <label>抄送单位</label>
@@ -73,7 +84,7 @@
 
       <div class="section-divider"></div>
 
-      <!-- 6. 印发 -->
+      <!-- 7. 印发 -->
       <div class="section-title">印发</div>
       <div class="form-row">
         <div class="form-group">
@@ -132,6 +143,7 @@ const form = reactive({
   cc: '文新街道、沁雅社区',
   printUnit: '杭州市西湖区沁雅花园第七届业主委员会',
   printDate: '2026年5月17日',
+  note: '',
   printCopies: ''
 })
 

@@ -25,6 +25,7 @@ public class LatexController {
             String content = body.getOrDefault("body", "");
             String organization = body.getOrDefault("organization", "");
             String date = body.getOrDefault("date", "");
+            String note = body.getOrDefault("note", "");
             String cc = body.getOrDefault("cc", "");
             String printUnit = body.getOrDefault("printUnit", "");
             String printDate = body.getOrDefault("printDate", "");
@@ -34,7 +35,7 @@ public class LatexController {
                     redHeader, documentNumber,
                     title, content,
                     organization, date,
-                    cc, printUnit, printDate, printCopies
+                    note, cc, printUnit, printDate, printCopies
             );
 
             HttpHeaders headers = new HttpHeaders();

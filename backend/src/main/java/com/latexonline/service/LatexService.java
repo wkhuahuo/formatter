@@ -13,7 +13,7 @@ public class LatexService {
             String redHeader, String documentNumber,
             String title, String body,
             String organization, String date,
-            String cc, String printUnit, String printDate, String printCopies
+            String note, String cc, String printUnit, String printDate, String printCopies
     ) throws Exception {
 
         StringBuilder tex = new StringBuilder();
@@ -131,38 +131,53 @@ public class LatexService {
             tex.append("\\end{flushright}\n");
         }
 
-        // --- CC & distribution ---
-        // 贴页面底部, tabular + hline 紧贴, 仿宋四号(14pt)
+        // --- 附注 GB/T 9704-2012 ---
+        // 居左空二字, 圆括号, 3号仿宋, 编排在成文日期下一行
+        if (isSet(note)) {
+            tex.append("\\fangsong\\fontsize{16pt}{28pt}\\selectfont\n");
+            tex.append("\\hspace{2\\ccwd}（").append(escape(note)).append("）\n\n");
+        }
+
+        // --- 版记 GB/T 9704-2012 ---
+        // 三条分隔线(两粗夹一细), 与版心等宽
+        // 粗线1pt≈0.35mm, 细线0.7pt≈0.25mm
+        // 抄送: 左右各空一字, 仿宋四号
+        // 印发: 左空一字(机关), 右空一字(日期+印发)
         boolean hasCc = isSet(cc);
         boolean hasPrintUnit = isSet(printUnit);
         if (hasCc || hasPrintUnit) {
+            // 版记: minipage 统一控制, 无 trick
             tex.append("\\vfill\n");
             tex.append("\\noindent\n");
-            tex.append("{\\fangsong\\fontsize{14pt}{14pt}\\selectfont\n");
-            tex.append("\\renewcommand{\\arraystretch}{0.85}\n");
-            tex.append("\\setlength{\\tabcolsep}{0pt}\n");
-            tex.append("\\begin{tabular}{@{}p{\\linewidth}@{}}\n");
-            tex.append("\\hline\n");
+            tex.append("\\begin{minipage}[b]{\\linewidth}\n");
+            tex.append("\\fangsong\\fontsize{14pt}{14pt}\\selectfont\n");
+            tex.append("\\setlength{\\parskip}{0pt}\n");
+            tex.append("\\setlength{\\parindent}{0pt}\n");
+
+            // 首条粗线
+            tex.append("\\rule{\\linewidth}{1pt}\\par\n");
+            tex.append("\\vspace{-6pt}\n");
 
             if (hasCc) {
-                tex.append("抄送：").append(escape(cc)).append(" \\\\\n");
-                tex.append("\\hline\n");
+                tex.append("\\hspace*{1em}抄送：").append(escape(stripTrailingPeriod(cc))).append("\\hspace*{1em}\\par\n");
+                tex.append("\\vspace{-10pt}\n");
+                // 中间细线
+                tex.append("\\rule{\\linewidth}{0.7pt}\\par\n");
+                tex.append("\\vspace{-6pt}\n");
             }
 
             if (hasPrintUnit) {
-                if (!hasCc) {
-                    tex.append("\\hline\n");
-                }
-                tex.append("\\makebox[\\linewidth][s]{");
-                tex.append(escape(printUnit));
+                tex.append("\\hspace*{1em}").append(escape(printUnit));
                 if (isSet(printDate)) {
                     tex.append("\\hfill ").append(escape(printDate)).append("印发");
                 }
-                tex.append("} \\\\\n");
-                tex.append("\\hline\n");
+                tex.append("\\hspace*{1em}\\par\n");
+                tex.append("\\vspace{-10pt}\n");
             }
-            tex.append("\\end{tabular}\n");
-            tex.append("}\n");
+
+            // 末条粗线
+            tex.append("\\rule{\\linewidth}{1pt}\\par\n");
+            tex.append("\\end{minipage}\n");
         }
 
         tex.append("\\end{document}\n");
@@ -262,6 +277,11 @@ public class LatexService {
             return "kaishu";
         }
         return null;
+    }
+
+    private String stripTrailingPeriod(String s) {
+        if (s == null) return "";
+        return s.replaceAll("[。.]$", "");
     }
 
     private boolean isSet(String s) {
