@@ -19,12 +19,23 @@ public class LatexController {
     @PostMapping("/compile")
     public ResponseEntity<?> compile(@RequestBody Map<String, String> body) {
         try {
+            String redHeader = body.getOrDefault("redHeader", "");
+            String documentNumber = body.getOrDefault("documentNumber", "");
             String title = body.getOrDefault("title", "");
             String content = body.getOrDefault("body", "");
             String organization = body.getOrDefault("organization", "");
             String date = body.getOrDefault("date", "");
+            String cc = body.getOrDefault("cc", "");
+            String printUnit = body.getOrDefault("printUnit", "");
+            String printDate = body.getOrDefault("printDate", "");
+            String printCopies = body.getOrDefault("printCopies", "");
 
-            byte[] pdf = latexService.compile(title, content, organization, date);
+            byte[] pdf = latexService.compile(
+                    redHeader, documentNumber,
+                    title, content,
+                    organization, date,
+                    cc, printUnit, printDate, printCopies
+            );
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_PDF);

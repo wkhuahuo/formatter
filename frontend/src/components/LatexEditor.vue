@@ -4,47 +4,91 @@
     <div class="edit-panel">
       <h1 class="panel-title">LaTeX 在线编辑系统</h1>
 
+      <!-- 1. 红头 -->
+      <div class="section-title">红头</div>
       <div class="form-group">
-        <label>标题</label>
-        <input
-          v-model="form.title"
-          type="text"
+        <label>红头单位</label>
+        <input v-model="form.redHeader" type="text"
+          placeholder="例如：沁雅花园第七届业主委员会文件"
+          @input="scheduleCompile" />
+      </div>
+      <div class="form-group">
+        <label>文号</label>
+        <input v-model="form.documentNumber" type="text"
+          placeholder="例如：沁业委发〔2026〕1号"
+          @input="scheduleCompile" />
+      </div>
+
+      <div class="section-divider"></div>
+
+      <!-- 2. 标题 -->
+      <div class="section-title">标题</div>
+      <div class="form-group">
+        <label>文档标题</label>
+        <input v-model="form.title" type="text"
           placeholder="请输入文档标题"
-          @input="scheduleCompile"
-        />
+          @input="scheduleCompile" />
       </div>
 
+      <div class="section-divider"></div>
+
+      <!-- 3. 正文 -->
+      <div class="section-title">正文</div>
       <div class="form-group">
-        <label>正文</label>
-        <textarea
-          v-model="form.body"
-          rows="14"
+        <label>正文内容</label>
+        <textarea v-model="form.body" rows="10"
           placeholder="请输入正文内容，段落之间用空行分隔"
-          @input="scheduleCompile"
-        ></textarea>
+          @input="scheduleCompile"></textarea>
       </div>
 
+      <div class="section-divider"></div>
+
+      <!-- 4. 落款 -->
+      <div class="section-title">落款</div>
       <div class="form-row">
         <div class="form-group">
           <label>落款单位</label>
-          <input
-            v-model="form.organization"
-            type="text"
+          <input v-model="form.organization" type="text"
             placeholder="单位名称"
-            @input="scheduleCompile"
-          />
+            @input="scheduleCompile" />
         </div>
         <div class="form-group">
           <label>落款时间</label>
-          <input
-            v-model="form.date"
-            type="text"
+          <input v-model="form.date" type="text"
             placeholder="例如：2026年6月2日"
-            @input="scheduleCompile"
-          />
+            @input="scheduleCompile" />
         </div>
       </div>
 
+      <div class="section-divider"></div>
+
+      <!-- 5. 抄送 -->
+      <div class="section-title">抄送</div>
+      <div class="form-group">
+        <label>抄送单位</label>
+        <input v-model="form.cc" type="text"
+          placeholder="抄送单位，以逗号分隔"
+          @input="scheduleCompile" />
+      </div>
+
+      <div class="section-divider"></div>
+
+      <!-- 6. 印发 -->
+      <div class="section-title">印发</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>印发单位</label>
+          <input v-model="form.printUnit" type="text"
+            placeholder="印发单位名称"
+            @input="scheduleCompile" />
+        </div>
+        <div class="form-group">
+          <label>印发日期</label>
+          <input v-model="form.printDate" type="text"
+            placeholder="印发日期"
+            @input="scheduleCompile" />
+        </div>
+      </div>
       <button class="download-btn" @click="downloadPdf" :disabled="!pdfReady">
         下载 PDF
       </button>
@@ -79,10 +123,16 @@
 import { ref, reactive } from 'vue'
 
 const form = reactive({
-  title: '',
-  body: '',
-  organization: '',
-  date: ''
+  redHeader: '沁雅花园第七届业主委员会文件',
+  documentNumber: '沁雅业委会发〔2026〕31号',
+  title: '关于沁雅花园地下室闲置空间物资存放服务的招租通告',
+  body: '沁雅花园各位业主及物业使用人：\n\n为有效盘活小区公共资产，提高地下室利用率，根据《杭州市物业管理条例》及本小区《管理规约》相关规定，经杭州市西湖区沁雅花园第七届业主委员会研究决定，现对小区内闲置地下室空间（约25平方米）面向小区业主/物业使用人公开招租，用于物资存放服务。具体招租事宜通告如下：\n\n一、项目概况\n\n招租单位：杭州市西湖区沁雅花园第七届业主委员会。\n项目名称：沁雅花园地下室物资存放空间租赁项目。\n项目地点：沁雅花园小区地下室内（具体位置由业委会现场指定）。\n使用面积：约25平方米。\n功能定位：仅限用于存放非易燃易爆的物资。\n\n二、租赁期限\n\n租赁期限为1年（自2026年6月1日起至2027年5月31日止）。期满后，同等条件下原承租人享有优先承租权，具体视届时小区管理政策而定。\n\n三、报名资格及要求\n\n优先对象：沁雅花园小区业主或合法物业使用人。\n基本条件：报名人须具有完全民事行为能力，且无拖欠本小区物业服务费及公摊费用的记录。\n\n特此通告。',
+  organization: '杭州市西湖区沁雅花园第七届业主委员会',
+  date: '2026年5月17日',
+  cc: '文新街道、沁雅社区',
+  printUnit: '杭州市西湖区沁雅花园第七届业主委员会',
+  printDate: '2026年5月17日',
+  printCopies: ''
 })
 
 const pdfUrl = ref(null)
@@ -98,9 +148,15 @@ function scheduleCompile() {
   debounceTimer = setTimeout(compile, 600)
 }
 
+function hasAnyContent() {
+  for (const v of Object.values(form)) {
+    if (v) return true
+  }
+  return false
+}
+
 async function compile() {
-  // Don't compile if all fields are empty
-  if (!form.title && !form.body && !form.organization && !form.date) {
+  if (!hasAnyContent()) {
     pdfUrl.value = null
     pdfReady.value = false
     return
@@ -154,15 +210,15 @@ function downloadPdf() {
 
 /* --- Left Panel --- */
 .edit-panel {
-  width: 420px;
-  min-width: 420px;
+  width: 460px;
+  min-width: 460px;
   padding: 24px;
   background: #fff;
   border-right: 1px solid #e0e0e0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
 }
 
 .panel-title {
@@ -170,6 +226,19 @@ function downloadPdf() {
   font-weight: 700;
   color: #1a1a1a;
   margin-bottom: 4px;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.section-divider {
+  height: 1px;
+  background: #e8e8e8;
 }
 
 .form-group {
@@ -180,7 +249,7 @@ function downloadPdf() {
 }
 
 .form-group label {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #555;
 }
@@ -188,7 +257,7 @@ function downloadPdf() {
 .form-group input,
 .form-group textarea {
   width: 100%;
-  padding: 10px 12px;
+  padding: 9px 12px;
   border: 1px solid #d0d0d0;
   border-radius: 6px;
   font-size: 14px;
@@ -280,7 +349,7 @@ function downloadPdf() {
   margin-top: 8px;
   font-size: 12px;
   text-align: left;
-  max-width: 500px;
+  max-width: 460px;
   white-space: pre-wrap;
   word-break: break-all;
 }
