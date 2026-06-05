@@ -18,19 +18,20 @@ public class LatexService {
 
         StringBuilder tex = new StringBuilder();
 
-        // --- Preamble ---
+        // === Preamble: GB/T 9704-2012 ===
+        // 版心 156mm×225mm, 天头37mm, 地脚35mm, 订口28mm, 翻口26mm
         tex.append("""
                 \\documentclass[UTF8]{ctexart}
                 \\usepackage{xcolor}
                 \\usepackage{fancyhdr}
                 \\usepackage{geometry}
+                \\usepackage{array}
                 \\definecolor{chinaRed}{RGB}{238,0,0}
                 """);
 
         boolean hasRedHeader = isSet(redHeader);
 
-        // --- Page geometry per GB/T 9704-2012 ---
-        // 版心 156mm×225mm, 天头37mm, 地脚35mm, 订口28mm, 翻口26mm
+        // Page geometry — exact GB/T 9704-2012 values
         if (hasRedHeader) {
             tex.append("""
                     \\geometry{
@@ -56,9 +57,7 @@ public class LatexService {
                     """);
         }
 
-        // --- Red header, first page only ---
-        // Red text and doc number extend 2cm beyond body margins on each side
-        // Uses \makebox[0pt][c] to center the oversized content
+        // Red header — first page only, extends 2cm beyond body margins
         if (hasRedHeader) {
             tex.append("\\fancypagestyle{redfirst}{\n");
             tex.append("  \\fancyhf{}\n");
@@ -84,21 +83,17 @@ public class LatexService {
             tex.append("  }\n");
             tex.append("  \\renewcommand{\\headrulewidth}{0pt}\n");
             tex.append("}\n");
-            // Default: no header on other pages
             tex.append("\\pagestyle{empty}\n");
         } else {
             tex.append("\\pagestyle{empty}\n");
         }
-
 
         tex.append("\n\\begin{document}\n");
         if (hasRedHeader) {
             tex.append("\\thispagestyle{redfirst}\n");
         }
 
-        // --- Title: GB/T 9704-2012 方正小标宋二号加粗居中 ---
-        // 标题中空格用 \quad{} 保留
-        // 与正文间距1行(28pt)
+        // Title: 方正小标宋二号(22pt) 加粗居中, 与正文间距半行(14pt)
         if (isSet(title)) {
             tex.append("\\begin{center}\n");
             tex.append("{\\songti\\fontsize{22pt}{28pt}\\selectfont\\bfseries ");
@@ -108,20 +103,40 @@ public class LatexService {
             tex.append("\\vspace{14pt}\n");
         }
 
-        // --- Body: GB/T 9704-2012 ---
-        // 仿宋三号 16pt, 固定行距28pt, 首行缩进2字符
-        // 一级标题(一、): 黑体三号, 二级((一)): 楷体三号
-        tex.append("\\fangsong\\fontsize{16pt}{28pt}\\selectfont\n");
+        // --- 严格对标 WPS 固定值28磅 ---
+        // \fontsize{16pt}{28pt} = 基线距28pt, WPS"固定值28磅"的精确等效
+        // \parskip=0pt 消除额外段间距, 段落间仅靠基线距区分
+
+        // --- 四级空间压缩策略 (WPS 28磅基线 + 弹性压缩) ---
+        // P1: 正文→落款间距 3cm 可压至 1cm (主弹性点)
+        // P2: 正文行距 28pt 可微压至 27pt
+        // P3: 段落间隙 4pt 可压至 0pt
+        // P4: 版心下延 1.2cm 侵入地脚
+
+        // Body: 仿宋三号(16pt), P2行距含微压缩
+        tex.append("\\fangsong\\fontsize{16pt}{28pt plus 0pt minus 1pt}\\selectfont\n");
+        tex.append("\\setlength{\\parskip}{0pt}\n");
         tex.append("\\setlength{\\parindent}{2\\ccwd}\n");
         if (isSet(body)) {
             tex.append(formatBody(body));
         }
 
-        // --- Closing: 仿宋三号右对齐 ---
+        // Closing + Note + Banji
         boolean hasOrg = isSet(organization);
         boolean hasDate = isSet(date);
+        boolean hasCc = isSet(cc);
+        boolean hasPrintUnit = isSet(printUnit);
+        boolean hasBanji = hasCc || hasPrintUnit;
+
+        // P4: 版心下延
+        if (hasBanji) {
+            tex.append("\\enlargethispage{1.2cm}\n");
+        }
+
+        // P1: "特此通告"与落款之间 — 主弹性胶水，正常3cm可压至1cm
         if (hasOrg || hasDate) {
-            tex.append("\\vspace{2em}\n\\begin{flushright}\n");
+            tex.append("\\vspace{3cm plus 0pt minus 2cm}\n");
+            tex.append("\\begin{flushright}\n");
             if (hasOrg) {
                 tex.append(escape(organization)).append(" \\\\[0.5em]\n");
             }
@@ -131,58 +146,47 @@ public class LatexService {
             tex.append("\\end{flushright}\n");
         }
 
-        // --- 附注 GB/T 9704-2012 ---
-        // 居左空二字, 圆括号, 3号仿宋, 编排在成文日期下一行
+        // Note: 居左空二字加圆括号, 仿宋三号
         if (isSet(note)) {
             tex.append("\\fangsong\\fontsize{16pt}{28pt}\\selectfont\n");
             tex.append("\\hspace{2\\ccwd}（").append(escape(note)).append("）\n\n");
         }
 
-        // --- 版记 GB/T 9704-2012 ---
-        // 三条分隔线(两粗夹一细), 与版心等宽
-        // 粗线1pt≈0.35mm, 细线0.7pt≈0.25mm
-        // 抄送: 左右各空一字, 仿宋四号
-        // 印发: 左空一字(机关), 右空一字(日期+印发)
-        boolean hasCc = isSet(cc);
-        boolean hasPrintUnit = isSet(printUnit);
-        if (hasCc || hasPrintUnit) {
-            // 版记: minipage 统一控制, 无 trick
-            tex.append("\\vfill\n");
+        // Banji: \vspace*{\fill} 确保换页后仍贴底（不会被页首吞掉）
+        if (hasBanji) {
+            tex.append("\\vspace*{\\fill}\n");
             tex.append("\\noindent\n");
-            tex.append("\\begin{minipage}[b]{\\linewidth}\n");
-            tex.append("\\fangsong\\fontsize{14pt}{14pt}\\selectfont\n");
-            tex.append("\\setlength{\\parskip}{0pt}\n");
-            tex.append("\\setlength{\\parindent}{0pt}\n");
-
-            // 首条粗线
-            tex.append("\\rule{\\linewidth}{1pt}\\par\n");
-            tex.append("\\vspace{-6pt}\n");
+            tex.append("{\\fangsong\\fontsize{14pt}{14pt}\\selectfont\n");
+            tex.append("\\renewcommand{\\arraystretch}{0.85}\n");
+            tex.append("\\setlength{\\tabcolsep}{0pt}\n");
+            tex.append("\\begin{tabular}{@{}p{\\linewidth}@{}}\n");
+            tex.append("\\hline\n");
 
             if (hasCc) {
-                tex.append("\\hspace*{1em}抄送：").append(escape(stripTrailingPeriod(cc))).append("\\hspace*{1em}\\par\n");
-                tex.append("\\vspace{-10pt}\n");
-                // 中间细线
-                tex.append("\\rule{\\linewidth}{0.7pt}\\par\n");
-                tex.append("\\vspace{-6pt}\n");
+                tex.append("\\hspace{1em}抄送：").append(escape(stripTrailingPeriod(cc))).append("\\hspace{1em} \\\\\n");
+                tex.append("\\hline\n");
             }
 
             if (hasPrintUnit) {
-                tex.append("\\hspace*{1em}").append(escape(printUnit));
+                if (!hasCc) {
+                    tex.append("\\hline\n");
+                }
+                tex.append("\\makebox[\\linewidth][s]{");
+                tex.append(escape(printUnit));
                 if (isSet(printDate)) {
                     tex.append("\\hfill ").append(escape(printDate)).append("印发");
                 }
-                tex.append("\\hspace*{1em}\\par\n");
-                tex.append("\\vspace{-10pt}\n");
+                tex.append("} \\\\\n");
+                tex.append("\\hline\n");
             }
 
-            // 末条粗线
-            tex.append("\\rule{\\linewidth}{1pt}\\par\n");
-            tex.append("\\end{minipage}\n");
+            tex.append("\\end{tabular}\n");
+            tex.append("}\n");
         }
 
         tex.append("\\end{document}\n");
 
-        // --- Compile ---
+        // === Compile with xelatex ===
         Path workDir = Files.createTempDirectory("latex_");
         File texFile = new File(workDir.toFile(), "document.tex");
 
@@ -227,24 +231,24 @@ public class LatexService {
         return pdfBytes;
     }
 
-    // Format body text per GB/T 9704-2012:
-    // 一级标题 "一、": \heiti, 二级 "(一)": \kaishu, 三级 "1.": default
+    // Format body paragraphs: blank lines in input = paragraph break
+    // GB/T 9704 → 仿宋三号 16pt/28pt, 首行缩进2字符在正文区设置
     private String formatBody(String body) {
         StringBuilder out = new StringBuilder();
         String[] paragraphs = body.split("\n");
-        for (int i = 0; i < paragraphs.length; i++) {
-            String p = paragraphs[i].trim();
-            if (p.isEmpty()) {
-                out.append("\n\n");
+        for (String p : paragraphs) {
+            String t = p.trim();
+            if (t.isEmpty()) {
+                // P3: 段落间隙小弹性 4pt→0pt
+                out.append("\\vspace{4pt plus 2pt minus 4pt}\n");
                 continue;
             }
-            String cmd = classifyHeading(p);
-            // Strip manual markers from display text
-            String display = p;
-            if (p.startsWith("## ")) {
-                display = p.substring(3);
-            } else if (p.startsWith("# ")) {
-                display = p.substring(2);
+            String cmd = classifyHeading(t);
+            String display = t;
+            if (t.startsWith("## ")) {
+                display = t.substring(3);
+            } else if (t.startsWith("# ")) {
+                display = t.substring(2);
             }
             if (cmd != null) {
                 out.append("{\\").append(cmd).append(" ").append(escape(display)).append("}\n\n");
@@ -255,28 +259,27 @@ public class LatexService {
         return out.toString();
     }
 
-    // Returns "heiti" for 一级标题, "kaishu" for 二级, null for body text
-    // Supports both auto-detection and manual markers:
-    //   auto: "一、..." → heiti, "（一）..." → kaishu
-    //   manual: "# 一、..." → heiti, "## （一）..." → kaishu
-    private String classifyHeading(String p) {
-        // Manual marker: ## for level 2
-        if (p.startsWith("## ")) {
-            return "kaishu";
-        }
-        // Manual marker: # for level 1
-        if (p.startsWith("# ")) {
-            return "heiti";
-        }
-        // Auto-detect: 一级标题 "一、", "十一、", "二十一、" etc.
-        if (p.matches("^[一二三四五六七八九十]{1,6}、.*")) {
-            return "heiti";
-        }
-        // Auto-detect: 二级标题 "（一）", "（十一）" etc.
-        if (p.matches("^（[一二三四五六七八九十]{1,6}）.*")) {
-            return "kaishu";
-        }
+    // Auto-detect heading level: 一级 "一、" → heiti, 二级 "(一)" → kaishu
+    private String classifyHeading(String text) {
+        if (text.matches("^[（(][一二三四五六七八九十]+[）)].*")) return "kaishu";
+        if (text.matches("^[一二三四五六七八九十]+、.*")) return "heiti";
+        if (text.startsWith("# ")) return "heiti";
+        if (text.startsWith("## ")) return "kaishu";
         return null;
+    }
+
+    private String escape(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\textbackslash{}")
+                .replace("&", "\\&")
+                .replace("%", "\\%")
+                .replace("$", "\\$")
+                .replace("#", "\\#")
+                .replace("_", "\\_")
+                .replace("{", "\\{")
+                .replace("}", "\\}")
+                .replace("~", "\\textasciitilde{}")
+                .replace("^", "\\textasciicircum{}");
     }
 
     private String stripTrailingPeriod(String s) {
@@ -288,29 +291,12 @@ public class LatexService {
         return s != null && !s.isBlank();
     }
 
-    private String escape(String input) {
-        if (input == null) return "";
-        return input
-                .replace("\\", "\\textbackslash ")
-                .replace("&", "\\&")
-                .replace("%", "\\%")
-                .replace("$", "\\$")
-                .replace("#", "\\#")
-                .replace("_", "\\_")
-                .replace("{", "\\{")
-                .replace("}", "\\}")
-                .replace("~", "\\textasciitilde ")
-                .replace("^", "\\textasciicircum ");
-    }
-
     private void deleteDir(Path dir) {
         try {
             if (Files.exists(dir)) {
-                try (var stream = Files.walk(dir)) {
-                    stream.sorted(java.util.Comparator.reverseOrder())
-                            .forEach(p -> {
-                                try { Files.delete(p); } catch (IOException ignored) {}
-                            });
+                try (var files = Files.walk(dir)) {
+                    files.sorted(java.util.Comparator.reverseOrder())
+                         .forEach(p -> { try { Files.delete(p); } catch (IOException ignored) {} });
                 }
             }
         } catch (IOException ignored) {}
