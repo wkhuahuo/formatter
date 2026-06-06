@@ -121,67 +121,79 @@ public class LatexService {
             tex.append(formatBody(body));
         }
 
-        // Closing + Note + Banji
+        // Closing + Note + Banji — wrapped in minipage to prevent cross-page break
         boolean hasOrg = isSet(organization);
         boolean hasDate = isSet(date);
         boolean hasCc = isSet(cc);
         boolean hasPrintUnit = isSet(printUnit);
+        boolean hasLuokuan = hasOrg || hasDate;
+        boolean hasNote = isSet(note);
         boolean hasBanji = hasCc || hasPrintUnit;
+        boolean hasClosingBlock = hasLuokuan || hasNote || hasBanji;
 
         // P4: 版心下延
         if (hasBanji) {
             tex.append("\\enlargethispage{1.2cm}\n");
         }
 
-        // P1: "特此通告"与落款之间 — 主弹性胶水，正常3cm可压至1cm
-        if (hasOrg || hasDate) {
-            tex.append("\\vspace{3cm plus 0pt minus 2cm}\n");
-            tex.append("\\begin{flushright}\n");
-            if (hasOrg) {
-                tex.append(escape(organization)).append(" \\\\[0.5em]\n");
+        if (hasClosingBlock) {
+            // 弹性胶水：正常拉伸贴底，必要时可压缩至约0，消除大片空白
+            tex.append("\\vspace{1cm plus 1fill minus 1cm}\n");
+            tex.append("\\begin{minipage}[b]{\\linewidth}\n");
+
+            // 落款
+            if (hasLuokuan) {
+                tex.append("\\begin{flushright}\n");
+                if (hasOrg) {
+                    tex.append(escape(organization)).append(" \\\\[0.5em]\n");
+                }
+                if (hasDate) {
+                    tex.append(escape(date)).append("\n");
+                }
+                tex.append("\\end{flushright}\n");
             }
-            if (hasDate) {
-                tex.append(escape(date)).append("\n");
+
+            // 附注: 居左空二字加圆括号, 仿宋三号
+            if (hasNote) {
+                tex.append("\\fangsong\\fontsize{16pt}{28pt}\\selectfont\n");
+                tex.append("\\hspace{2\\ccwd}（").append(escape(note)).append("）\n\n");
             }
-            tex.append("\\end{flushright}\n");
-        }
 
-        // Note: 居左空二字加圆括号, 仿宋三号
-        if (isSet(note)) {
-            tex.append("\\fangsong\\fontsize{16pt}{28pt}\\selectfont\n");
-            tex.append("\\hspace{2\\ccwd}（").append(escape(note)).append("）\n\n");
-        }
-
-        // Banji: \vspace*{\fill} 确保换页后仍贴底（不会被页首吞掉）
-        if (hasBanji) {
-            tex.append("\\vspace*{\\fill}\n");
-            tex.append("\\noindent\n");
-            tex.append("{\\fangsong\\fontsize{14pt}{14pt}\\selectfont\n");
-            tex.append("\\renewcommand{\\arraystretch}{0.85}\n");
-            tex.append("\\setlength{\\tabcolsep}{0pt}\n");
-            tex.append("\\begin{tabular}{@{}p{\\linewidth}@{}}\n");
-            tex.append("\\hline\n");
-
-            if (hasCc) {
-                tex.append("\\hspace{1em}抄送：").append(escape(stripTrailingPeriod(cc))).append("\\hspace{1em} \\\\\n");
+            // 版记
+            if (hasBanji) {
+                if (hasLuokuan || hasNote) {
+                    tex.append("\\vspace{1em}\n");
+                }
+                tex.append("\\noindent\n");
+                tex.append("{\\fangsong\\fontsize{14pt}{14pt}\\selectfont\n");
+                tex.append("\\renewcommand{\\arraystretch}{0.85}\n");
+                tex.append("\\setlength{\\tabcolsep}{0pt}\n");
+                tex.append("\\begin{tabular}{@{}p{\\linewidth}@{}}\n");
                 tex.append("\\hline\n");
-            }
 
-            if (hasPrintUnit) {
-                if (!hasCc) {
+                if (hasCc) {
+                    tex.append("\\hspace{1em}抄送：").append(escape(stripTrailingPeriod(cc))).append("\\hspace{1em} \\\\\n");
                     tex.append("\\hline\n");
                 }
-                tex.append("\\makebox[\\linewidth][s]{");
-                tex.append(escape(printUnit));
-                if (isSet(printDate)) {
-                    tex.append("\\hfill ").append(escape(printDate)).append("印发");
+
+                if (hasPrintUnit) {
+                    if (!hasCc) {
+                        tex.append("\\hline\n");
+                    }
+                    tex.append("\\makebox[\\linewidth][s]{");
+                    tex.append(escape(printUnit));
+                    if (isSet(printDate)) {
+                        tex.append("\\hfill ").append(escape(printDate)).append("印发");
+                    }
+                    tex.append("} \\\\\n");
+                    tex.append("\\hline\n");
                 }
-                tex.append("} \\\\\n");
-                tex.append("\\hline\n");
+
+                tex.append("\\end{tabular}\n");
+                tex.append("}\n");
             }
 
-            tex.append("\\end{tabular}\n");
-            tex.append("}\n");
+            tex.append("\\end{minipage}\n");
         }
 
         tex.append("\\end{document}\n");
