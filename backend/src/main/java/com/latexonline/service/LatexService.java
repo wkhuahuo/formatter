@@ -4,9 +4,17 @@ import org.springframework.stereotype.Service;
 
 import java.io.*;
 import java.nio.file.*;
+import java.util.regex.*;
 
 @Service
 public class LatexService {
+
+    // Minimum bottom margin in cm — never shrink below this
+    private static final double MIN_BOTTOM_CM = 2.0;
+    // Default bottom margin per GB/T 9704-2012
+    private static final double DEFAULT_BOTTOM_CM = 3.5;
+    // Threshold: deficit must be ≤ 2 body lines to trigger adjustment
+    private static final double TWO_LINES_CM = 2 * 28 * 0.03514598; // 28pt * 2 ≈ 1.97cm
 
     @SuppressWarnings("unused")
     public byte[] compile(
@@ -16,48 +24,162 @@ public class LatexService {
             String note, String cc, String printUnit, String printDate, String printCopies
     ) throws Exception {
 
-        StringBuilder tex = new StringBuilder();
+        // --- first attempt with default bottom margin ---
+        String tex = buildLatex(
+                redHeader, documentNumber, title, body,
+                organization, date, note, cc, printUnit, printDate, printCopies,
+                DEFAULT_BOTTOM_CM
+        );
 
-        // === Preamble: GB/T 9704-2012 ===
-        // 版心 156mm×225mm, 天头37mm, 地脚35mm, 订口28mm, 翻口26mm
-        tex.append("""
-                \\documentclass[UTF8]{ctexart}
-                \\usepackage{xcolor}
-                \\usepackage{fancyhdr}
-                \\usepackage{geometry}
-                \\usepackage{array}
-                \\definecolor{chinaRed}{RGB}{238,0,0}
-                """);
+        Path[] workDirHolder = new Path[1];
+        byte[] pdfBytes = compileTexKeepDir(tex, workDirHolder);
+        Path workDir = workDirHolder[0];
+
+        if (pdfBytes == null) {
+            throw new RuntimeException("LaTeX compilation failed");
+        }
+
+        // --- orphan detection: check .orph file written by LaTeX measurement ---
+        File orphanFile = new File(workDir.toFile(), "document.orph");
+        double deficitCm = 0;
+
+        if (orphanFile.exists()) {
+            try {
+                String content = Files.readString(orphanFile.toPath());
+                Matcher m = Pattern.compile("DEFICIT=([0-9]+(?:\\.[0-9]+)?)pt").matcher(content);
+                if (m.find()) {
+                    double deficitPt = Double.parseDouble(m.group(1));
+                    deficitCm = deficitPt * 0.03514598; // TeX pt → cm
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        deleteDir(workDir);
+
+        // If deficit is within 2-line threshold, rebuild with smaller bottom margin
+        if (deficitCm > 0 && deficitCm <= TWO_LINES_CM) {
+            double newBottom = DEFAULT_BOTTOM_CM - deficitCm;
+            if (newBottom >= MIN_BOTTOM_CM) {
+                String adjustedTex = buildLatex(
+                        redHeader, documentNumber, title, body,
+                        organization, date, note, cc, printUnit, printDate, printCopies,
+                        newBottom
+                );
+                byte[] adjustedPdf = compileOnce(adjustedTex);
+                if (adjustedPdf != null) {
+                    return adjustedPdf;
+                }
+            }
+        }
+
+        return pdfBytes;
+    }
+
+    /**
+     * Compile a tex string (two xelatex passes). Returns PDF bytes,
+     * and keeps workDir alive via outWorkDir so caller can inspect aux files.
+     * Returns null on failure (workDir already cleaned up).
+     */
+    private byte[] compileTexKeepDir(String tex, Path[] outWorkDir) throws Exception {
+        Path workDir = Files.createTempDirectory("latex_");
+        outWorkDir[0] = workDir;
+
+        File texFile = new File(workDir.toFile(), "document.tex");
+        try (FileWriter writer = new FileWriter(texFile)) {
+            writer.write(tex);
+        }
+
+        // First pass
+        ProcessBuilder pb = new ProcessBuilder(
+                "xelatex", "-interaction=nonstopmode", "-halt-on-error",
+                "-output-directory=" + workDir.toString(), texFile.getAbsolutePath()
+        );
+        pb.directory(workDir.toFile());
+        Process process = pb.start();
+        String stdout = new String(process.getInputStream().readAllBytes());
+        int exitCode = process.waitFor();
+
+        if (exitCode != 0) {
+            deleteDir(workDir);
+            outWorkDir[0] = null;
+            return null;
+        }
+
+        // Second pass
+        new ProcessBuilder(
+                "xelatex", "-interaction=nonstopmode",
+                "-output-directory=" + workDir.toString(), texFile.getAbsolutePath()
+        ).directory(workDir.toFile()).start().waitFor();
+
+        File pdfFile = new File(workDir.toFile(), "document.pdf");
+        if (!pdfFile.exists()) {
+            deleteDir(workDir);
+            outWorkDir[0] = null;
+            return null;
+        }
+
+        return Files.readAllBytes(pdfFile.toPath());
+    }
+
+    /**
+     * Compile a tex string, return PDF bytes, clean up workDir.
+     */
+    private byte[] compileOnce(String tex) throws Exception {
+        Path[] holder = new Path[1];
+        byte[] pdf = compileTexKeepDir(tex, holder);
+        if (holder[0] != null) {
+            deleteDir(holder[0]);
+        }
+        return pdf;
+    }
+
+    private String buildLatex(
+            String redHeader, String documentNumber,
+            String title, String body,
+            String organization, String date,
+            String note, String cc, String printUnit, String printDate, String printCopies,
+            double bottomCm
+    ) {
+        StringBuilder tex = new StringBuilder();
 
         boolean hasRedHeader = isSet(redHeader);
 
-        // Page geometry — exact GB/T 9704-2012 values
+        // === Preamble ===
+        tex.append("\\documentclass[UTF8]{ctexart}\n");
+        tex.append("\\usepackage{xcolor}\n");
+        tex.append("\\usepackage{fancyhdr}\n");
+        tex.append("\\usepackage{geometry}\n");
+        tex.append("\\usepackage{array}\n");
+        tex.append("\\definecolor{chinaRed}{RGB}{238,0,0}\n");
+
+        // === Page geometry ===
         if (hasRedHeader) {
-            tex.append("""
+            tex.append(String.format("""
                     \\geometry{
                       a4paper,
                       top=4.5cm,
-                      bottom=3.5cm,
+                      bottom=%.1fcm,
                       left=2.8cm,
                       right=2.6cm,
                       headheight=2.5cm,
                       headsep=0.5cm,
                       footskip=1.75cm
                     }
-                    """);
+                    """, bottomCm));
         } else {
-            tex.append("""
+            tex.append(String.format("""
                     \\geometry{
                       a4paper,
                       top=3.7cm,
-                      bottom=3.5cm,
+                      bottom=%.1fcm,
                       left=2.8cm,
                       right=2.6cm
                     }
-                    """);
+                    """, bottomCm));
         }
 
-        // Red header — first page only, extends 2cm beyond body margins
+        // === Red header ===
         if (hasRedHeader) {
             tex.append("\\fancypagestyle{redfirst}{\n");
             tex.append("  \\fancyhf{}\n");
@@ -93,7 +215,7 @@ public class LatexService {
             tex.append("\\thispagestyle{redfirst}\n");
         }
 
-        // Title: 方正小标宋二号(22pt) 加粗居中, 与正文间距半行(14pt)
+        // === Title ===
         if (isSet(title)) {
             tex.append("\\begin{center}\n");
             tex.append("{\\songti\\fontsize{22pt}{28pt}\\selectfont\\bfseries ");
@@ -103,25 +225,15 @@ public class LatexService {
             tex.append("\\vspace{14pt}\n");
         }
 
-        // --- 严格对标 WPS 固定值28磅 ---
-        // \fontsize{16pt}{28pt} = 基线距28pt, WPS"固定值28磅"的精确等效
-        // \parskip=0pt 消除额外段间距, 段落间仅靠基线距区分
-
-        // --- 四级空间压缩策略 (WPS 28磅基线 + 弹性压缩) ---
-        // P1: 正文→落款间距 3cm 可压至 1cm (主弹性点)
-        // P2: 正文行距 28pt 可微压至 27pt
-        // P3: 段落间隙 4pt 可压至 0pt
-        // P4: 版心下延 1.2cm 侵入地脚
-
-        // Body: 仿宋三号(16pt), P2行距含微压缩
-        tex.append("\\fangsong\\fontsize{16pt}{28pt plus 0pt minus 1pt}\\selectfont\n");
-        tex.append("\\setlength{\\parskip}{0pt}\n");
+        // === Body ===
+        tex.append("\\fangsong\\fontsize{16pt}{28pt plus 0pt minus 3pt}\\selectfont\n");
+        tex.append("\\setlength{\\parskip}{4pt plus 2pt minus 4pt}\n");
         tex.append("\\setlength{\\parindent}{2\\ccwd}\n");
         if (isSet(body)) {
             tex.append(formatBody(body));
         }
 
-        // Closing + Note + Banji — wrapped in minipage to prevent cross-page break
+        // === Closing block ===
         boolean hasOrg = isSet(organization);
         boolean hasDate = isSet(date);
         boolean hasCc = isSet(cc);
@@ -131,21 +243,21 @@ public class LatexService {
         boolean hasBanji = hasCc || hasPrintUnit;
         boolean hasClosingBlock = hasLuokuan || hasNote || hasBanji;
 
-        // P4: 版心下延
-        if (hasBanji) {
-            tex.append("\\enlargethispage{1.2cm}\n");
-        }
-
         if (hasClosingBlock) {
-            // 弹性胶水：正常拉伸贴底，必要时可压缩至约0，消除大片空白
-            tex.append("\\vspace{1cm plus 1fill minus 1cm}\n");
-            tex.append("\\begin{minipage}[b]{\\linewidth}\n");
+
+            // ---- orphan detection: measure closing block height vs remaining page space ----
+            tex.append("\n% --- orphan detection ---\n");
+            tex.append("\\newwrite\\orphanfile\n");
+            tex.append("\\newsavebox{\\closingBox}\n");
+            tex.append("\\savebox{\\closingBox}{%\n");
+            tex.append("\\begin{minipage}{\\linewidth}\n");
 
             // 落款
             if (hasLuokuan) {
                 tex.append("\\begin{flushright}\n");
                 if (hasOrg) {
-                    tex.append(escape(organization)).append(" \\\\[0.5em]\n");
+                    tex.append(escape(organization)).append(" \\\\\n");
+                    tex.append("\\vspace{0.5em plus 0em minus 0.3em}\n");
                 }
                 if (hasDate) {
                     tex.append(escape(date)).append("\n");
@@ -153,16 +265,16 @@ public class LatexService {
                 tex.append("\\end{flushright}\n");
             }
 
-            // 附注: 居左空二字加圆括号, 仿宋三号
+            // 附注
             if (hasNote) {
-                tex.append("\\fangsong\\fontsize{16pt}{28pt}\\selectfont\n");
+                tex.append("\\fangsong\\fontsize{16pt}{28pt plus 0pt minus 3pt}\\selectfont\n");
                 tex.append("\\hspace{2\\ccwd}（").append(escape(note)).append("）\n\n");
             }
 
             // 版记
             if (hasBanji) {
                 if (hasLuokuan || hasNote) {
-                    tex.append("\\vspace{1em}\n");
+                    tex.append("\\vspace{1em plus 0em minus 0.5em}\n");
                 }
                 tex.append("\\noindent\n");
                 tex.append("{\\fangsong\\fontsize{14pt}{14pt}\\selectfont\n");
@@ -172,7 +284,9 @@ public class LatexService {
                 tex.append("\\hline\n");
 
                 if (hasCc) {
-                    tex.append("\\hspace{1em}抄送：").append(escape(stripTrailingPeriod(cc))).append("\\hspace{1em} \\\\\n");
+                    tex.append("\\hspace{1em}抄送：")
+                        .append(escape(stripTrailingPeriod(cc)))
+                        .append("\\hspace{1em} \\\\\n");
                     tex.append("\\hline\n");
                 }
 
@@ -193,66 +307,43 @@ public class LatexService {
                 tex.append("}\n");
             }
 
-            tex.append("\\end{minipage}\n");
+            tex.append("\\end{minipage}%\n");
+            tex.append("}\n");  // end \savebox
+
+            // ---- compare remaining space on current page with closing block height ----
+            tex.append("\\newdimen\\pageRemaining\n");
+            tex.append("\\pageRemaining=\\dimexpr\\pagegoal-\\pagetotal\\relax\n");
+            tex.append("\\newdimen\\closingNeed\n");
+            tex.append("\\closingNeed=\\dimexpr\\ht\\closingBox+\\dp\\closingBox+14pt\\relax\n");
+            tex.append("\\ifdim\\closingNeed>\\pageRemaining\n");
+            tex.append("  \\newdimen\\orphDeficit\n");
+            tex.append("  \\orphDeficit=\\dimexpr\\closingNeed-\\pageRemaining\\relax\n");
+            tex.append("  \\ifdim\\orphDeficit<2\\baselineskip\n");
+            tex.append("    \\immediate\\openout\\orphanfile=\\jobname.orph\n");
+            tex.append("    \\immediate\\write\\orphanfile{DEFICIT=\\the\\orphDeficit}\n");
+            tex.append("    \\immediate\\closeout\\orphanfile\n");
+            tex.append("  \\fi\n");
+            tex.append("\\fi\n");
+
+            // ---- place the closing block with elastic leading space ----
+            tex.append("\n% --- closing block ---\n");
+            tex.append("\\vspace{3cm plus 0pt minus 2.5cm}\n");
+            tex.append("\\usebox{\\closingBox}\n");
         }
 
         tex.append("\\end{document}\n");
-
-        // === Compile with xelatex ===
-        Path workDir = Files.createTempDirectory("latex_");
-        File texFile = new File(workDir.toFile(), "document.tex");
-
-        try (FileWriter writer = new FileWriter(texFile)) {
-            writer.write(tex.toString());
-        }
-
-        ProcessBuilder pb = new ProcessBuilder(
-                "xelatex",
-                "-interaction=nonstopmode",
-                "-halt-on-error",
-                "-output-directory=" + workDir.toString(),
-                texFile.getAbsolutePath()
-        );
-        pb.directory(workDir.toFile());
-
-        Process process = pb.start();
-        String log = new String(process.getInputStream().readAllBytes());
-        int exitCode = process.waitFor();
-
-        if (exitCode == 0) {
-            new ProcessBuilder(
-                    "xelatex",
-                    "-interaction=nonstopmode",
-                    "-output-directory=" + workDir.toString(),
-                    texFile.getAbsolutePath()
-            ).directory(workDir.toFile()).start().waitFor();
-        } else {
-            deleteDir(workDir);
-            throw new RuntimeException("LaTeX compilation failed:\n" + log);
-        }
-
-        File pdfFile = new File(workDir.toFile(), "document.pdf");
-        if (!pdfFile.exists()) {
-            deleteDir(workDir);
-            throw new RuntimeException("PDF not generated. Log:\n" + log);
-        }
-
-        byte[] pdfBytes = Files.readAllBytes(pdfFile.toPath());
-        deleteDir(workDir);
-
-        return pdfBytes;
+        return tex.toString();
     }
 
-    // Format body paragraphs: blank lines in input = paragraph break
-    // GB/T 9704 → 仿宋三号 16pt/28pt, 首行缩进2字符在正文区设置
+    // Format body: blank lines in input become paragraph breaks.
+    // Spacing is governed by \parskip (elastic) set before the body.
     private String formatBody(String body) {
         StringBuilder out = new StringBuilder();
         String[] paragraphs = body.split("\n");
         for (String p : paragraphs) {
             String t = p.trim();
             if (t.isEmpty()) {
-                // P3: 段落间隙小弹性 4pt→0pt
-                out.append("\\vspace{4pt plus 2pt minus 4pt}\n");
+                out.append("\n");
                 continue;
             }
             String cmd = classifyHeading(t);
@@ -271,7 +362,6 @@ public class LatexService {
         return out.toString();
     }
 
-    // Auto-detect heading level: 一级 "一、" → heiti, 二级 "(一)" → kaishu
     private String classifyHeading(String text) {
         if (text.matches("^[（(][一二三四五六七八九十]+[）)].*")) return "kaishu";
         if (text.matches("^[一二三四五六七八九十]+、.*")) return "heiti";
