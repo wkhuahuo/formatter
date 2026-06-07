@@ -4,7 +4,7 @@ PID_FILE=/home/administrator/latexOnline/.pids
 PROJECT_DIR=/home/administrator/latexOnline
 
 echo "============================="
-echo " LaTeX 在线编辑系统 启动中..."
+echo " WPS 在线编辑系统 启动中..."
 echo "============================="
 
 # --- Clean up any existing processes ---

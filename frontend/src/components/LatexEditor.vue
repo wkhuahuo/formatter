@@ -2,7 +2,7 @@
   <div class="editor-layout">
     <!-- Left: Form -->
     <div class="edit-panel">
-      <h1 class="panel-title">LaTeX 在线编辑系统</h1>
+      <h1 class="panel-title">WPS 在线编辑系统</h1>
 
       <!-- 1. 红头 -->
       <div class="section-title">红头</div>
@@ -32,7 +32,18 @@
 
       <div class="section-divider"></div>
 
-      <!-- 3. 正文 -->
+      <!-- 3. 主送机关 -->
+      <div class="section-title">主送机关</div>
+      <div class="form-group">
+        <label>主送机关</label>
+        <input v-model="form.recipient" type="text"
+          placeholder="例如：各位业主："
+          @input="scheduleCompile" />
+      </div>
+
+      <div class="section-divider"></div>
+
+      <!-- 4. 正文 -->
       <div class="section-title">正文</div>
       <div class="form-group">
         <label>正文内容</label>
@@ -100,44 +111,50 @@
             @input="scheduleCompile" />
         </div>
       </div>
-      <button class="download-btn" @click="downloadPdf" :disabled="!pdfReady">
-        下载 PDF
+      <button class="download-btn" @click="downloadDocx" :disabled="!docxReady">
+        下载 .docx
       </button>
     </div>
 
     <!-- Right: Preview -->
     <div class="preview-panel">
-      <div class="preview-header">PDF 实时预览</div>
-      <div class="preview-content" ref="previewContainer">
+      <div class="preview-header">
+        <span>实时预览</span>
+        <button
+          class="download-btn-small"
+          @click="downloadDocx"
+          :disabled="!docxReady"
+          v-show="docxReady"
+        >下载 .docx</button>
+      </div>
+      <div class="preview-content">
         <div v-if="loading" class="preview-placeholder">
           <div class="spinner"></div>
-          <p>正在编译...</p>
-        </div>
-        <div v-else-if="!pdfUrl" class="preview-placeholder">
-          <p>填写内容后自动预览</p>
+          <p>正在生成文档...</p>
         </div>
         <div v-else-if="compileError" class="preview-placeholder error">
-          <p>编译失败</p>
+          <p>生成失败</p>
           <pre>{{ compileError }}</pre>
         </div>
-        <iframe
-          v-show="pdfUrl && !loading && !compileError"
-          :src="pdfUrl"
-          class="pdf-frame"
-        ></iframe>
+        <div v-else-if="!docxReady" class="preview-placeholder">
+          <p>填写内容后自动预览</p>
+        </div>
+        <div v-else ref="docxRenderer" class="docx-renderer"></div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, nextTick } from 'vue'
+import { renderAsync } from 'docx-preview'
 
 const form = reactive({
   redHeader: '沁雅花园第七届业主委员会文件',
   documentNumber: '沁雅业委会发〔2026〕31号',
   title: '关于沁雅花园地下室闲置空间物资存放服务的招租通告',
-  body: '沁雅花园各位业主及物业使用人：\n\n为有效盘活小区公共资产，提高地下室利用率，根据《杭州市物业管理条例》及本小区《管理规约》相关规定，经杭州市西湖区沁雅花园第七届业主委员会研究决定，现对小区内闲置地下室空间（约25平方米）面向小区业主/物业使用人公开招租，用于物资存放服务。具体招租事宜通告如下：\n\n一、项目概况\n\n招租单位：杭州市西湖区沁雅花园第七届业主委员会。\n项目名称：沁雅花园地下室物资存放空间租赁项目。\n项目地点：沁雅花园小区地下室内（具体位置由业委会现场指定）。\n使用面积：约25平方米。\n功能定位：仅限用于存放非易燃易爆的物资。\n\n二、租赁期限\n\n租赁期限为1年（自2026年6月1日起至2027年5月31日止）。期满后，同等条件下原承租人享有优先承租权，具体视届时小区管理政策而定。\n\n三、报名资格及要求\n\n优先对象：沁雅花园小区业主或合法物业使用人。\n基本条件：报名人须具有完全民事行为能力，且无拖欠本小区物业服务费及公摊费用的记录。\n\n特此通告。',
+  recipient: '各位业主：',
+  body: '为有效盘活小区公共资产，提高地下室利用率，根据《杭州市物业管理条例》及本小区《管理规约》相关规定，经杭州市西湖区沁雅花园第七届业主委员会研究决定，现对小区内闲置地下室空间（约25平方米）面向小区业主/物业使用人公开招租，用于物资存放服务。具体招租事宜通告如下：\n一、项目概况\n招租单位：杭州市西湖区沁雅花园第七届业主委员会。\n项目名称：沁雅花园地下室物资存放空间租赁项目。\n项目地点：沁雅花园小区地下室内（具体位置由业委会现场指定）。\n使用面积：约25平方米。\n功能定位：仅限用于存放非易燃易爆的物资。\n二、租赁期限\n租赁期限为1年（自2026年6月1日起至2027年5月31日止）。期满后，同等条件下原承租人享有优先承租权，具体视届时小区管理政策而定。\n三、报名资格及要求\n优先对象：沁雅花园小区业主或合法物业使用人。\n基本条件：报名人须具有完全民事行为能力，且无拖欠本小区物业服务费及公摊费用的记录。\n特此通告。',
   organization: '杭州市西湖区沁雅花园第七届业主委员会',
   date: '2026年5月17日',
   cc: '文新街道、沁雅社区',
@@ -147,13 +164,13 @@ const form = reactive({
   printCopies: ''
 })
 
-const pdfUrl = ref(null)
-const pdfReady = ref(false)
+const docxReady = ref(false)
 const loading = ref(false)
 const compileError = ref('')
-const previewContainer = ref(null)
+const docxRenderer = ref(null)
 
 let debounceTimer = null
+let docxBlob = null
 
 function scheduleCompile() {
   clearTimeout(debounceTimer)
@@ -169,8 +186,8 @@ function hasAnyContent() {
 
 async function compile() {
   if (!hasAnyContent()) {
-    pdfUrl.value = null
-    pdfReady.value = false
+    docxReady.value = false
+    docxBlob = null
     return
   }
 
@@ -178,40 +195,61 @@ async function compile() {
   compileError.value = ''
 
   try {
-    const res = await fetch('/api/compile', {
+    const res = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form)
     })
-
     if (!res.ok) {
       const err = await res.json()
-      throw new Error(err.error || '编译失败')
+      throw new Error(err.error || '生成失败')
     }
-
     const blob = await res.blob()
-    if (pdfUrl.value) {
-      URL.revokeObjectURL(pdfUrl.value)
+    docxBlob = blob
+    docxReady.value = true
+    loading.value = false
+
+    await nextTick()
+    if (docxRenderer.value) {
+      docxRenderer.value.innerHTML = ''
+      await renderAsync(blob, docxRenderer.value, undefined, {
+        className: 'docx-preview-page',
+        inWrapper: true,
+        ignoreWidth: false,
+        ignoreHeight: false,
+        ignoreFonts: false,
+        breakPages: true,
+        ignoreLastRenderedPageBreak: true,
+        trimXmlDeclaration: true,
+        useBase64URL: false,
+        renderChanges: false,
+        renderHeaders: true,
+        renderFooters: true,
+        renderFootnotes: true,
+        renderEndnotes: true,
+      })
     }
-    pdfUrl.value = URL.createObjectURL(blob)
-    pdfReady.value = true
   } catch (e) {
     compileError.value = e.message
-    pdfReady.value = false
-  } finally {
+    docxReady.value = false
+    docxBlob = null
     loading.value = false
   }
 }
 
-function downloadPdf() {
-  if (!pdfUrl.value) return
+function downloadDocx() {
+  if (!docxBlob) return
+  const url = URL.createObjectURL(docxBlob)
   const a = document.createElement('a')
-  a.href = pdfUrl.value
-  a.download = 'document.pdf'
+  a.href = url
+  a.download = 'document.docx'
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
+
+compile()
 </script>
 
 <style scoped>
@@ -321,32 +359,60 @@ function downloadPdf() {
 }
 
 .preview-header {
-  padding: 12px 20px;
+  padding: 10px 20px;
   background: #fff;
   border-bottom: 1px solid #e0e0e0;
   font-size: 14px;
   font-weight: 600;
   color: #555;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.download-btn-small {
+  padding: 6px 16px;
+  background: #4a90d9;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.download-btn-small:hover:not(:disabled) {
+  background: #357abd;
+}
+
+.download-btn-small:disabled {
+  background: #c0c0c0;
+  cursor: not-allowed;
 }
 
 .preview-content {
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: auto;
+  position: relative;
 }
 
-.pdf-frame {
-  width: 100%;
-  height: 100%;
-  border: none;
-  background: #fff;
+.docx-renderer {
+  min-height: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .preview-placeholder {
   text-align: center;
   color: #999;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .preview-placeholder p {
@@ -378,5 +444,22 @@ function downloadPdf() {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+</style>
+
+<!-- Global styles for docx-preview (unscoped so they apply to rendered content) -->
+<style>
+.docx-preview-page {
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  margin: 0 auto 20px auto;
+  padding: 0;
+  max-width: 210mm;
+}
+
+.docx-renderer .docx-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 </style>
