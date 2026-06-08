@@ -195,9 +195,13 @@ async function compile() {
   compileError.value = ''
 
   try {
+    const headers = { 'Content-Type': 'application/json' }
+    const token = localStorage.getItem('token')
+    if (token) headers['Authorization'] = `Bearer ${token}`
+
     const res = await fetch('/api/generate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(form)
     })
     if (!res.ok) {
@@ -255,7 +259,7 @@ compile()
 <style scoped>
 .editor-layout {
   display: flex;
-  height: 100vh;
+  height: calc(100vh - 48px);
 }
 
 /* --- Left Panel --- */
