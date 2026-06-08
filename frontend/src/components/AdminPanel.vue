@@ -51,7 +51,7 @@
 import { ref, watch } from 'vue'
 import { apiGet, apiPut } from '../api.js'
 
-defineProps({ visible: { type: Boolean, default: false } })
+const props = defineProps({ visible: { type: Boolean, default: false } })
 const emit = defineEmits(['close'])
 
 const users = ref([])
@@ -79,7 +79,7 @@ async function doApprove(u) {
   }
 }
 
-watch(() => true, loadUsers, { immediate: true })
+watch(() => props.visible, (val) => { if (val) loadUsers() })
 </script>
 
 <style scoped>

@@ -5,7 +5,10 @@ function getToken() {
 }
 
 async function request(path, options = {}) {
-  const headers = { 'Content-Type': 'application/json', ...options.headers }
+  const headers = { ...options.headers }
+  if (options.body) {
+    headers['Content-Type'] = 'application/json'
+  }
   const token = getToken()
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
@@ -27,5 +30,9 @@ export function apiPost(path, body) {
 }
 
 export function apiPut(path, body) {
-  return request(path, { method: 'PUT', body: JSON.stringify(body) })
+  const options = { method: 'PUT' }
+  if (body !== undefined) {
+    options.body = JSON.stringify(body)
+  }
+  return request(path, options)
 }
