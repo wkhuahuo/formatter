@@ -7,7 +7,17 @@ const routes = [
   { path: '/editor', name: 'editor', component: EditorPage },
 ]
 
-export default createRouter({
+const router = createRouter({
   history: createWebHistory(),
   routes,
 })
+
+router.beforeEach(async (to, from) => {
+  const { auth } = await import('./auth.js')
+  if (auth.ready && !auth.isLoggedIn) {
+    auth.requireLogin()
+    return false
+  }
+})
+
+export default router

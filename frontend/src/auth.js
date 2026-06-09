@@ -5,6 +5,7 @@ export const auth = reactive({
   user: null,
   token: localStorage.getItem('token') || '',
   needsLogin: false,
+  ready: false,
 
   get isLoggedIn() {
     return !!this.token && !!this.user
@@ -19,11 +20,16 @@ export const auth = reactive({
   },
 
   async checkAuth() {
-    if (!this.token) return
+    if (!this.token) {
+      this.ready = true
+      return
+    }
     try {
       this.user = await apiGet('/auth/me')
     } catch {
       this.logout()
+    } finally {
+      this.ready = true
     }
   },
 

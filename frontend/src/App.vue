@@ -32,6 +32,9 @@ const showAdmin = ref(false)
 
 onMounted(async () => {
   await auth.checkAuth()
+  if (!auth.isLoggedIn) {
+    showLogin.value = true
+  }
 })
 
 watch(() => auth.needsLogin, (val) => {
