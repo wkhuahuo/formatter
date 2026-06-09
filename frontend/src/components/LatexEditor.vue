@@ -259,13 +259,14 @@ compile()
 <style scoped>
 .editor-layout {
   display: flex;
-  height: calc(100vh - 48px);
+  flex-wrap: wrap;
+  min-height: calc(100vh - 48px);
 }
 
 /* --- Left Panel --- */
 .edit-panel {
-  width: 460px;
-  min-width: 460px;
+  flex: 1 1 380px;
+  min-width: 0;
   padding: 24px;
   background: #fff;
   border-right: 1px solid #e0e0e0;
@@ -356,10 +357,11 @@ compile()
 
 /* --- Right Panel --- */
 .preview-panel {
-  flex: 1;
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
   background: #e8e8e8;
+  min-width: 300px;
 }
 
 .preview-header {
@@ -372,6 +374,7 @@ compile()
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .download-btn-small {
@@ -449,6 +452,30 @@ compile()
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* --- Responsive: stack on narrow screens --- */
+@media (max-width: 900px) {
+  .editor-layout {
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .edit-panel {
+    flex: 0 0 auto;
+    border-right: none;
+    border-bottom: 1px solid #e0e0e0;
+    max-height: 50vh;
+  }
+
+  .preview-panel {
+    flex: 1 1 auto;
+    min-height: 50vh;
+  }
+
+  .docx-renderer {
+    padding: 12px;
+  }
+}
 </style>
 
 <!-- Global styles for docx-preview (unscoped so they apply to rendered content) -->
@@ -458,7 +485,8 @@ compile()
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   margin: 0 auto 20px auto;
   padding: 0;
-  max-width: 210mm;
+  width: 210mm;
+  max-width: 100%;
 }
 
 .docx-renderer .docx-wrapper {

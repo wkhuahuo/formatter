@@ -11,7 +11,5 @@ import LatexEditor from './LatexEditor.vue'
 <style scoped>
 .editor-page {
   flex: 1;
-  display: flex;
-  overflow: hidden;
 }
 </style>
