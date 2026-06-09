@@ -105,4 +105,26 @@
   font-weight: 600;
   color: #4a90d9;
 }
+
+@media (max-width: 600px) {
+  .home {
+    padding: 32px 16px;
+  }
+
+  .hero h1 {
+    font-size: 22px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+  }
+
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .feature-card {
+    padding: 20px;
+  }
+}
 </style>

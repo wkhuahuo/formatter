@@ -217,4 +217,12 @@ async function submit() {
 .switch-link a:hover {
   text-decoration: underline;
 }
+
+@media (max-width: 480px) {
+  .modal-box {
+    width: calc(100vw - 32px);
+    padding: 24px 20px;
+    border-radius: 8px;
+  }
+}
 </style>

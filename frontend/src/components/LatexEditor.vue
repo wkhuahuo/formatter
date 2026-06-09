@@ -464,16 +464,47 @@ compile()
     flex: 0 0 auto;
     border-right: none;
     border-bottom: 1px solid #e0e0e0;
-    max-height: 50vh;
+    max-height: none;
   }
 
   .preview-panel {
     flex: 1 1 auto;
-    min-height: 50vh;
+    min-height: 60vh;
   }
 
   .docx-renderer {
     padding: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .edit-panel {
+    padding: 16px;
+    gap: 10px;
+  }
+
+  .panel-title {
+    font-size: 17px;
+  }
+
+  .form-row {
+    flex-direction: column;
+  }
+
+  .form-group input,
+  .form-group textarea {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .download-btn {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+
+  .preview-header {
+    padding: 8px 12px;
+    font-size: 13px;
   }
 }
 </style>

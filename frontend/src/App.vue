@@ -134,6 +134,29 @@ body {
 
 .main-content {
   flex: 1;
-  overflow: hidden;
+}
+
+@media (max-width: 600px) {
+  .top-bar {
+    padding: 0 12px;
+  }
+
+  .app-name {
+    font-size: 14px;
+  }
+
+  .username {
+    display: none;
+  }
+
+  .auth-btn,
+  .admin-btn {
+    font-size: 12px;
+    padding: 5px 10px;
+  }
+
+  .top-right {
+    gap: 8px;
+  }
 }
 </style>

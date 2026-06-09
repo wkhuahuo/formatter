@@ -215,4 +215,16 @@ watch(() => props.visible, (val) => { if (val) loadUsers() })
   color: #bbb;
   padding: 32px !important;
 }
+
+@media (max-width: 560px) {
+  .admin-panel {
+    width: 100%;
+  }
+
+  .user-table th,
+  .user-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}
 </style>
