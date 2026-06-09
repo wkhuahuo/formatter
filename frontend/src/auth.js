@@ -4,6 +4,7 @@ import { apiGet, apiPost } from './api.js'
 export const auth = reactive({
   user: null,
   token: localStorage.getItem('token') || '',
+  needsLogin: false,
 
   get isLoggedIn() {
     return !!this.token && !!this.user
@@ -11,6 +12,10 @@ export const auth = reactive({
 
   get isAdmin() {
     return this.user?.role === 'ADMIN'
+  },
+
+  requireLogin() {
+    this.needsLogin = true
   },
 
   async checkAuth() {

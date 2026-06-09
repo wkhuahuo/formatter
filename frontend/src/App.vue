@@ -16,13 +16,13 @@
     <div class="main-content">
       <LatexEditor />
     </div>
-    <LoginModal :visible="showLogin" @close="showLogin = false" />
+    <LoginModal :visible="showLogin" @close="onLoginClose" />
     <AdminPanel :visible="showAdmin" @close="showAdmin = false" />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import LatexEditor from './components/LatexEditor.vue'
 import LoginModal from './components/LoginModal.vue'
 import AdminPanel from './components/AdminPanel.vue'
@@ -34,6 +34,15 @@ const showAdmin = ref(false)
 onMounted(async () => {
   await auth.checkAuth()
 })
+
+watch(() => auth.needsLogin, (val) => {
+  if (val) showLogin.value = true
+})
+
+function onLoginClose() {
+  showLogin.value = false
+  auth.needsLogin = false
+}
 </script>
 
 <style>

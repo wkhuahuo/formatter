@@ -16,6 +16,9 @@ async function request(path, options = {}) {
   const res = await fetch(BASE + path, { ...options, headers })
   const data = await res.json()
   if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      import('./auth.js').then(m => m.auth.requireLogin())
+    }
     throw new Error(data.message || '请求失败')
   }
   return data
