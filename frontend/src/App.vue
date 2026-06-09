@@ -1,7 +1,7 @@
 <template>
   <div class="app-container">
     <header class="top-bar">
-      <span class="app-name">WPS 在线编辑系统</span>
+      <span class="app-name" @click="$router.push('/')">WPS 在线工具集</span>
       <div class="top-right">
         <template v-if="auth.isLoggedIn">
           <button v-if="auth.isAdmin" class="admin-btn" @click="showAdmin = true">用户管理</button>
@@ -14,7 +14,7 @@
       </div>
     </header>
     <div class="main-content">
-      <LatexEditor />
+      <router-view />
     </div>
     <LoginModal :visible="showLogin" @close="onLoginClose" />
     <AdminPanel :visible="showAdmin" @close="showAdmin = false" />
@@ -23,7 +23,6 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
-import LatexEditor from './components/LatexEditor.vue'
 import LoginModal from './components/LoginModal.vue'
 import AdminPanel from './components/AdminPanel.vue'
 import { auth } from './auth.js'
@@ -79,6 +78,12 @@ body {
   font-size: 16px;
   font-weight: 700;
   color: #1a1a1a;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.app-name:hover {
+  color: #4a90d9;
 }
 
 .top-right {
