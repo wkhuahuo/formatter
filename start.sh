@@ -73,6 +73,19 @@ fi
 # --- Start frontend ---
 echo "[2/2] 启动前端 (Vue :5174)..."
 cd "$SCRIPT_DIR/frontend"
+
+# 首次运行自动安装依赖
+if [ ! -d "node_modules" ]; then
+  echo "      首次运行，正在安装前端依赖..."
+  npm install >> "$FRONTEND_LOG" 2>&1
+  if [ $? -ne 0 ]; then
+    echo "[错误] 前端依赖安装失败！查看日志："
+    tail -20 "$FRONTEND_LOG"
+    exit 1
+  fi
+  echo "      依赖安装完成"
+fi
+
 npm run dev > "$FRONTEND_LOG" 2>&1 &
 FRONTEND_PID=$!
 
