@@ -2,7 +2,7 @@
   <div class="editor-layout">
     <!-- Left: Form -->
     <div class="edit-panel">
-      <h1 class="panel-title">WPS 在线编辑系统</h1>
+      <h1 class="panel-title">{{ APP.editorTitle }}</h1>
 
       <!-- 1. 红头 -->
       <div class="section-title">红头</div>
@@ -148,8 +148,11 @@
 <script setup>
 import { ref, reactive, nextTick } from 'vue'
 import { renderAsync } from 'docx-preview'
+import { apiPostBlob } from '../api.js'
+import { APP } from '../config.js'
 
 const form = reactive({
+  templateType: 'redHeader',
   redHeader: '沁雅花园第七届业主委员会文件',
   documentNumber: '沁雅业委会发〔2026〕31号',
   title: '关于沁雅花园地下室闲置空间物资存放服务的招租通告',
@@ -195,20 +198,7 @@ async function compile() {
   compileError.value = ''
 
   try {
-    const headers = { 'Content-Type': 'application/json' }
-    const token = localStorage.getItem('token')
-    if (token) headers['Authorization'] = `Bearer ${token}`
-
-    const res = await fetch('/api/generate', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(form)
-    })
-    if (!res.ok) {
-      const err = await res.json()
-      throw new Error(err.error || '生成失败')
-    }
-    const blob = await res.blob()
+    const blob = await apiPostBlob('/generate', form)
     docxBlob = blob
     docxReady.value = true
     loading.value = false

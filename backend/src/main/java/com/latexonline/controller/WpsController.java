@@ -19,12 +19,23 @@ public class WpsController {
     @PostMapping("/generate")
     public ResponseEntity<?> generate(@RequestBody Map<String, String> b) {
         try {
-            byte[] docx = wpsService.generate(
-                    s(b, "redHeader"), s(b, "documentNumber"),
-                    s(b, "title"), s(b, "recipient"), s(b, "body"),
-                    s(b, "organization"), s(b, "date"),
-                    s(b, "note"), s(b, "cc"), s(b, "printUnit"), s(b, "printDate"), s(b, "printCopies")
-            );
+            String templateType = b.getOrDefault("templateType", "redHeader");
+            byte[] docx;
+            if ("meetingMinutes".equals(templateType)) {
+                docx = wpsService.generateMeetingMinutes(
+                        s(b, "title"), s(b, "meetingTime"), s(b, "meetingLocation"),
+                        s(b, "host"), s(b, "recorder"), s(b, "attendees"),
+                        s(b, "attendeesOther"), s(b, "agenda"), s(b, "content"),
+                        s(b, "resolution")
+                );
+            } else {
+                docx = wpsService.generate(
+                        s(b, "redHeader"), s(b, "documentNumber"),
+                        s(b, "title"), s(b, "recipient"), s(b, "body"),
+                        s(b, "organization"), s(b, "date"),
+                        s(b, "note"), s(b, "cc"), s(b, "printUnit"), s(b, "printDate"), s(b, "printCopies")
+                );
+            }
             HttpHeaders h = new HttpHeaders();
             h.setContentType(MediaType.parseMediaType(
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
