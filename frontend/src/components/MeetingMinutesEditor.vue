@@ -121,16 +121,23 @@ import { apiPostBlob } from '../api.js'
 
 const form = reactive({
   templateType: 'meetingMinutes',
-  title: '',
-  meetingTime: '',
-  meetingLocation: '',
-  host: '',
-  recorder: '',
-  attendees: '',
-  attendeesOther: '',
-  agenda: '',
-  content: '',
-  resolution: ''
+  title: '关于确认消防设计单位的会议纪要',
+  meetingTime: '2026年5月9日',
+  meetingLocation: '沁雅花园19幢业委会办公室',
+  host: '肖俊',
+  recorder: '王锴',
+  attendees: '肖俊、王建江、王锴、张月美、孙晓美',
+  attendeesOther: '鲍伊凡、钱渭平',
+  agenda: '商议聘用哪一家消防设计单位。',
+  content: '消防问题是涉及安全的是沁雅花园小区亟待解决的重大问题。本次会议对有意愿承担沁雅花园消防改造工程的单位进行审议和决定。结合此前针对本小区消防问题的沟通以及接收到的两家单位资料，从设计单位资质、价格、经验三个方面进行评估择优评估。\n' +
+    '本次一共收到了两份消防设计单位愿意承担沁雅花园消防设计工程：1、浙江南方建筑设计有限公司。2、华城博远工程技术集团有限公司。\n' +
+    '\n' +
+    '浙江南方建筑设计有限公司：总投资（暂定）200万元，专业系数1，复杂系数1，附加调整系数1.7，费率4.5%，优惠折扣0，设计费15.3万元，综合设计费率7.65。\n' +
+    '\n' +
+    '华城博远工程技术集团有限公司：总投资（暂定）260万元，专业系数1，复杂系数-，附加调整系数1.2，费率4.2%，优惠折扣0.8，设计费10.4832万元，综合设计费率4.032。\n' +
+    '\n' +
+    '考虑到后续工程预估与实际造价波动时仍需对设计费做相应调整，因此使用综合设计费率来评估实际哪家价格有优势。',
+  resolution: '经过商议，决定选择华城博远工程技术集团有限公司作为本小区消防设计改造的设计单位。'
 })
 
 const docxReady = ref(false)
@@ -205,6 +212,8 @@ function downloadDocx() {
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
 }
+
+compile()
 </script>
 
 <style scoped>
