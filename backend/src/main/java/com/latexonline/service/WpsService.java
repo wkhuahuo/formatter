@@ -786,7 +786,7 @@ public class WpsService {
 
             // ── 会议决议 ──
             if (TextUtils.isSet(resolution)) {
-                addMmSectionHeading(doc, "会议决议");
+                addMmSectionHeading(doc, "四、会议决议");
                 String[] resParas = resolution.split("\n");
                 for (String para : resParas) {
                     String text = para.trim();
@@ -803,7 +803,7 @@ public class WpsService {
             sigHead.setSpacingAfter(0);
             sigHead.setIndentationFirstLine(0);
             XWPFRun sigr = sigHead.createRun();
-            sigr.setText("签字：");
+            sigr.setText("五、签字");
             sigr.setFontSize(MM_HEADING_SIZE);
             setEastAsianFont(sigr, "黑体");
 
