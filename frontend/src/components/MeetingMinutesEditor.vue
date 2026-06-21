@@ -71,9 +71,9 @@
       <div class="section-title">会议议题</div>
       <div class="form-group">
         <label>议题内容</label>
-        <textarea v-model="form.agenda" rows="3"
+        <textarea v-model="form.agenda" ref="agendaRef"
           placeholder="请输入会议议题，多个议题用换行分隔"
-          @input="scheduleCompile"></textarea>
+          @input="autoResize(agendaRef); scheduleCompile()"></textarea>
       </div>
 
       <div class="section-divider"></div>
@@ -81,9 +81,9 @@
       <div class="section-title">会议主要内容及议定事项</div>
       <div class="form-group">
         <label>主要内容</label>
-        <textarea v-model="form.content" rows="10"
+        <textarea v-model="form.content" ref="contentRef"
           placeholder="请输入会议主要内容和议定事项。段落之间用空行分隔。"
-          @input="scheduleCompile"></textarea>
+          @input="autoResize(contentRef); scheduleCompile()"></textarea>
       </div>
 
       <div class="section-divider"></div>
@@ -91,9 +91,9 @@
       <div class="section-title">会议决议</div>
       <div class="form-group">
         <label>决议内容</label>
-        <textarea v-model="form.resolution" rows="4"
+        <textarea v-model="form.resolution" ref="resolutionRef"
           placeholder="请输入会议决议。段落之间用空行分隔。"
-          @input="scheduleCompile"></textarea>
+          @input="autoResize(resolutionRef); scheduleCompile()"></textarea>
       </div>
 
       <button class="download-btn" @click="downloadDocx" :disabled="!docxReady">
@@ -131,7 +131,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, nextTick } from 'vue'
+import { ref, reactive, nextTick, onMounted } from 'vue'
 import { renderAsync } from 'docx-preview'
 import { apiPostBlob } from '../api.js'
 
@@ -156,6 +156,22 @@ const form = reactive({
     '\n' +
     '考虑到后续工程预估与实际造价波动时仍需对设计费做相应调整，因此使用综合设计费率来评估实际哪家价格有优势。',
   resolution: '经过商议，决定选择华城博远工程技术集团有限公司作为本小区消防设计改造的设计单位。'
+})
+
+const agendaRef = ref(null)
+const contentRef = ref(null)
+const resolutionRef = ref(null)
+
+function autoResize(el) {
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = el.scrollHeight + 'px'
+}
+
+onMounted(() => {
+  autoResize(agendaRef.value)
+  autoResize(contentRef.value)
+  autoResize(resolutionRef.value)
 })
 
 const docxReady = ref(false)
@@ -244,13 +260,13 @@ compile()
 .edit-panel {
   flex: 1 1 380px;
   min-width: 0;
-  padding: 24px;
+  padding: 20px;
   background: #fff;
   border-right: 1px solid #e0e0e0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 8px;
 }
 
 .panel-title {
@@ -289,13 +305,15 @@ compile()
 .form-group input,
 .form-group textarea {
   width: 100%;
+  min-height: 42px;
   padding: 9px 12px;
   border: 1px solid #d0d0d0;
   border-radius: 6px;
   font-size: 14px;
   font-family: inherit;
   transition: border-color 0.2s;
-  resize: vertical;
+  resize: none;
+  overflow: hidden;
 }
 
 .form-group input:focus,
