@@ -261,7 +261,7 @@ compile()
 }
 
 .section-title {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: #999;
   text-transform: uppercase;

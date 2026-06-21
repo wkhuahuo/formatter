@@ -769,32 +769,12 @@ public class WpsService {
             // ── 二、会议议题 ──
             if (TextUtils.isSet(agenda)) {
                 addMmSectionHeading(doc, "二、会议议题");
-                addMmBodyParagraph(doc, agenda, false);
+                addMmBodyParagraph(doc, agenda, true);
             }
 
             // ── 三、会议主要内容及议定事项 ──
             if (TextUtils.isSet(content)) {
-                XWPFParagraph h3a = doc.createParagraph();
-                h3a.setAlignment(ParagraphAlignment.LEFT);
-                h3a.setSpacingBetween(MM_LINE_HEIGHT, LineSpacingRule.EXACT);
-                h3a.setSpacingBefore(ptToTwips(6));
-                h3a.setSpacingAfter(0);
-                h3a.setIndentationFirstLine(0);
-                XWPFRun h3r = h3a.createRun();
-                h3r.setText("三、");
-                h3r.setFontSize(MM_HEADING_SIZE);
-                setEastAsianFont(h3r, "黑体");
-
-                XWPFParagraph h3b = doc.createParagraph();
-                h3b.setAlignment(ParagraphAlignment.LEFT);
-                h3b.setSpacingBetween(MM_LINE_HEIGHT, LineSpacingRule.EXACT);
-                h3b.setSpacingBefore(0);
-                h3b.setSpacingAfter(0);
-                h3b.setIndentationFirstLine(0);
-                XWPFRun h3br = h3b.createRun();
-                h3br.setText("会议主要内容及议定事项");
-                h3br.setFontSize(MM_HEADING_SIZE);
-                setEastAsianFont(h3br, "黑体");
+                addMmSectionHeading(doc, "三、会议主要内容及议定事项");
 
                 String[] bodyParas = content.split("\n");
                 for (String para : bodyParas) {
