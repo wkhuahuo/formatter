@@ -709,6 +709,8 @@ public class WpsService {
     private static final double MM_TITLE_SIZE = 18;
     private static final double MM_HEADING_SIZE = 16;
     private static final double MM_BODY_SIZE = 16;
+    private static final double MM_RED_HEADER_SIZE = 22;
+    private static final double MM_DOC_NUMBER_SIZE = 16;
     private static final double MM_LINE_HEIGHT = 28.0;
     private static final double MM_TOP_CM = 3.7;
     private static final double MM_BOTTOM_CM = 3.5;
@@ -720,13 +722,21 @@ public class WpsService {
     public byte[] generateMeetingMinutes(
             String title, String meetingTime, String meetingLocation,
             String host, String recorder, String attendees, String attendeesOther,
-            String agenda, String content, String resolution
+            String agenda, String content, String resolution,
+            String redHeader, String documentNumber
     ) throws Exception {
+
+        boolean hasRedHeader = TextUtils.isSet(redHeader);
 
         try (XWPFDocument doc = new XWPFDocument()) {
 
             setPageMargins(doc, MM_TOP_CM, MM_BOTTOM_CM, MM_LEFT_CM, MM_RIGHT_CM,
                     MM_HEADER_CM, MM_FOOTER_CM);
+
+            // ── Red header ──
+            if (hasRedHeader) {
+                addMmRedHeader(doc, redHeader, documentNumber);
+            }
 
             // ── Title ──
             if (TextUtils.isSet(title)) {
@@ -841,6 +851,53 @@ public class WpsService {
         r.setText(heading);
         r.setFontSize(MM_HEADING_SIZE);
         setEastAsianFont(r, "黑体");
+    }
+
+    private void addMmRedHeader(XWPFDocument doc, String redHeader, String documentNumber) {
+        int negIndent = -cmToTwips(2.0);
+
+        // Red header unit — 方正小标宋 22pt, red, centered, extended beyond margins
+        XWPFParagraph p1 = doc.createParagraph();
+        p1.setAlignment(ParagraphAlignment.CENTER);
+        p1.setIndentationLeft(negIndent);
+        p1.setIndentationRight(negIndent);
+        p1.setSpacingBefore(0);
+        p1.setSpacingAfter(0);
+        XWPFRun r1 = p1.createRun();
+        r1.setText(redHeader);
+        r1.setFontSize(MM_RED_HEADER_SIZE);
+        r1.setColor(CHINA_RED);
+        setEastAsianFont(r1, "方正小标宋简体");
+
+        // Document number — 仿宋 16pt, centered
+        if (TextUtils.isSet(documentNumber)) {
+            XWPFParagraph sp = doc.createParagraph();
+            sp.setSpacingBetween(MM_LINE_HEIGHT, LineSpacingRule.EXACT);
+            sp.setSpacingBefore(0);
+            sp.setSpacingAfter(0);
+            XWPFRun sr = sp.createRun();
+            sr.setFontSize(MM_DOC_NUMBER_SIZE);
+            setEastAsianFont(sr, "仿宋");
+
+            XWPFParagraph p2 = doc.createParagraph();
+            p2.setAlignment(ParagraphAlignment.CENTER);
+            p2.setIndentationLeft(negIndent);
+            p2.setIndentationRight(negIndent);
+            p2.setSpacingBefore(0);
+            p2.setSpacingAfter(0);
+            XWPFRun r2 = p2.createRun();
+            r2.setText(documentNumber);
+            r2.setFontSize(MM_DOC_NUMBER_SIZE);
+            setEastAsianFont(r2, "仿宋");
+
+            // Red separator line
+            XWPFParagraph p3 = doc.createParagraph();
+            p3.setAlignment(ParagraphAlignment.CENTER);
+            p3.setSpacingBefore(cmToTwips(0.4));
+            XWPFRun r3 = p3.createRun();
+            r3.setColor(CHINA_RED);
+            setParagraphBottomBorder(p3, CHINA_RED, 12);
+        }
     }
 
     private void addMmInfoLine(XWPFDocument doc, String label, String value) {

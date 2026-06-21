@@ -26,7 +26,7 @@ public class WpsController {
                         s(b, "title"), s(b, "meetingTime"), s(b, "meetingLocation"),
                         s(b, "host"), s(b, "recorder"), s(b, "attendees"),
                         s(b, "attendeesOther"), s(b, "agenda"), s(b, "content"),
-                        s(b, "resolution")
+                        s(b, "resolution"), s(b, "redHeader"), s(b, "documentNumber")
                 );
             } else {
                 docx = wpsService.generate(

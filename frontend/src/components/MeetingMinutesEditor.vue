@@ -4,6 +4,22 @@
     <div class="edit-panel">
       <h1 class="panel-title">会议纪要编辑</h1>
 
+      <div class="section-title">红头</div>
+      <div class="form-group">
+        <label>红头单位</label>
+        <input v-model="form.redHeader" type="text"
+          placeholder="例如：沁雅花园第七届业主委员会会议纪要"
+          @input="scheduleCompile" />
+      </div>
+      <div class="form-group">
+        <label>文号</label>
+        <input v-model="form.documentNumber" type="text"
+          placeholder="例如：沁雅业委会〔2026〕5-2号"
+          @input="scheduleCompile" />
+      </div>
+
+      <div class="section-divider"></div>
+
       <div class="section-title">标题</div>
       <div class="form-group">
         <label>会议标题</label>
@@ -121,6 +137,8 @@ import { apiPostBlob } from '../api.js'
 
 const form = reactive({
   templateType: 'meetingMinutes',
+  redHeader: '沁雅花园第七届业主委员会会议纪要',
+  documentNumber: '沁雅业委会〔2026〕5-2号',
   title: '关于确认消防设计单位的会议纪要',
   meetingTime: '2026年5月9日',
   meetingLocation: '沁雅花园19幢业委会办公室',
