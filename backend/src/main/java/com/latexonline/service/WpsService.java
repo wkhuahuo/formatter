@@ -706,7 +706,7 @@ public class WpsService {
     //  Meeting Minutes Generator
     // ═══════════════════════════════════════════════════════════
 
-    private static final double MM_TITLE_SIZE = 18;
+    private static final double MM_TITLE_SIZE = 16;
     private static final double MM_HEADING_SIZE = 16;
     private static final double MM_BODY_SIZE = 16;
     private static final double MM_RED_HEADER_SIZE = 22;
@@ -748,8 +748,7 @@ public class WpsService {
                 XWPFRun tr = tp.createRun();
                 tr.setText(title);
                 tr.setFontSize(MM_TITLE_SIZE);
-                tr.setBold(true);
-                setEastAsianFont(tr, "宋体");
+                setEastAsianFont(tr, "黑体");
             }
 
             // ── 一、会议基本信息 ──
