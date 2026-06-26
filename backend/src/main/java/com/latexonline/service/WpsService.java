@@ -864,8 +864,9 @@ public class WpsService {
 
             XWPFParagraph p2 = doc.createParagraph();
             p2.setAlignment(ParagraphAlignment.CENTER);
-            p2.setIndentationLeft(negIndent);
-            p2.setIndentationRight(negIndent);
+            p2.setIndentationLeft(0);
+            p2.setIndentationRight(0);
+            p2.setSpacingBetween(MM_LINE_HEIGHT, LineSpacingRule.EXACT);
             p2.setSpacingBefore(0);
             p2.setSpacingAfter(0);
             XWPFRun r2 = p2.createRun();
@@ -873,10 +874,12 @@ public class WpsService {
             r2.setFontSize(MM_DOC_NUMBER_SIZE);
             setEastAsianFont(r2, "仿宋");
 
-            // Red separator line
+            // Red separator line — fixed 1pt, no spacing before/after
             XWPFParagraph p3 = doc.createParagraph();
             p3.setAlignment(ParagraphAlignment.CENTER);
-            p3.setSpacingBefore(cmToTwips(0.4));
+            p3.setSpacingBetween(1.0, LineSpacingRule.EXACT);
+            p3.setSpacingBefore(0);
+            p3.setSpacingAfter(0);
             XWPFRun r3 = p3.createRun();
             r3.setColor(CHINA_RED);
             setParagraphBottomBorder(p3, CHINA_RED, 12);

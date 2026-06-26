@@ -236,7 +236,7 @@ function downloadDocx() {
   const url = URL.createObjectURL(docxBlob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'document.docx'
+  a.download = `${form.printDate}${form.documentNumber}${form.title}.docx`
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
