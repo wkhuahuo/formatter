@@ -120,23 +120,23 @@ async function submit() {
 .modal-box {
   background: #fff;
   border-radius: 10px;
-  padding: 32px 28px;
-  width: 380px;
+  padding: clamp(16px, 3vw, 32px) clamp(16px, 3vw, 32px);
+  width: clamp(320px, 90vw, 420px);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
 }
 
 .modal-box h2 {
   font-size: 20px;
   font-weight: 700;
-  margin-bottom: 20px;
+  margin-bottom: clamp(8px, 1.5vw, 20px);
   text-align: center;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 14px;
+  gap: clamp(2px, 0.35vw, 6px);
+  margin-bottom: clamp(6px, 1vw, 14px);
 }
 
 .form-group label {
@@ -147,7 +147,7 @@ async function submit() {
 
 .form-group input {
   width: 100%;
-  padding: 9px 12px;
+  padding: clamp(4px, 0.5vw, 9px) clamp(6px, 0.85vw, 14px);
   border: 1px solid #d0d0d0;
   border-radius: 6px;
   font-size: 14px;

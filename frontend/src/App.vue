@@ -60,6 +60,32 @@ body {
   color: #333;
 }
 
+/* ── 中文字体别名映射 ──
+   docx-preview 将 .docx 中的字体名直接输出为 CSS font-family，
+   但浏览器默认没有 "仿宋""楷体" 等字体。以下 @font-face 将
+   文档字体名映射到 macOS / Windows 系统自带中文字体，保证预览
+   与 Word/WPS 实际渲染效果一致。 */
+@font-face {
+  font-family: '仿宋';
+  src: local('仿宋'), local('STFangsong'), local('FangSong'), local('华文仿宋');
+}
+@font-face {
+  font-family: '黑体';
+  src: local('黑体'), local('Heiti SC'), local('SimHei'), local('STHeiti');
+}
+@font-face {
+  font-family: '楷体';
+  src: local('楷体'), local('Kaiti SC'), local('KaiTi'), local('STKaiti');
+}
+@font-face {
+  font-family: '宋体';
+  src: local('宋体'), local('Songti SC'), local('SimSun'), local('STSong');
+}
+@font-face {
+  font-family: '方正小标宋简体';
+  src: local('方正小标宋简体'), local('Songti SC'), local('SimSun'), local('STSong'), local('宋体');
+}
+
 .app-container {
   min-height: 100vh;
   display: flex;

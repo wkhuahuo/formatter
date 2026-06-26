@@ -262,8 +262,9 @@ public class WpsService {
 
             XWPFParagraph p2 = doc.createParagraph();
             p2.setAlignment(ParagraphAlignment.CENTER);
-            p2.setIndentationLeft(negIndent);
-            p2.setIndentationRight(negIndent);
+            p2.setIndentationLeft(0);
+            p2.setIndentationRight(0);
+            p2.setSpacingBetween(BODY_LINE_HEIGHT, LineSpacingRule.EXACT);
             p2.setSpacingBefore(0);
             p2.setSpacingAfter(0);
             XWPFRun r2 = p2.createRun();
@@ -271,10 +272,12 @@ public class WpsService {
             r2.setFontSize(DOC_NUMBER_SIZE);
             setEastAsianFont(r2, "仿宋");
 
-            // 红色分隔线 — 发文字号下4mm
+            // 红色分隔线 — 固定值 1 磅，段前段后 0
             XWPFParagraph p3 = doc.createParagraph();
             p3.setAlignment(ParagraphAlignment.CENTER);
-            p3.setSpacingBefore(cmToTwips(0.4));
+            p3.setSpacingBetween(1.0, LineSpacingRule.EXACT);
+            p3.setSpacingBefore(0);
+            p3.setSpacingAfter(0);
             XWPFRun r3 = p3.createRun();
             r3.setColor(CHINA_RED);
             setParagraphBottomBorder(p3, CHINA_RED, 12);
@@ -383,21 +386,16 @@ public class WpsService {
             XWPFParagraph p = doc.createParagraph();
             p.setAlignment(ParagraphAlignment.RIGHT);
             p.setSpacingBetween(BODY_LINE_HEIGHT, LineSpacingRule.EXACT);
-            // Center date under organization by padding spaces
-            String displayDate = date;
+            // 日期居中于落款单位下方：用右缩进精确控制，避免空格宽度不准
             if (TextUtils.isSet(organization)) {
-                int orgLen = visualLength(organization);
-                int dateLen = visualLength(date);
-                if (orgLen > dateLen) {
-                    int pad = (orgLen - dateLen) / 2;
-                    StringBuilder sb = new StringBuilder();
-                    for (int i = 0; i < pad; i++) sb.append(' ');
-                    sb.append(date);
-                    displayDate = sb.toString();
+                int orgWidthTwips = visualWidthTwips(organization);
+                int dateWidthTwips = visualWidthTwips(date);
+                if (orgWidthTwips > dateWidthTwips) {
+                    p.setIndentationRight((orgWidthTwips - dateWidthTwips) / 2);
                 }
             }
             XWPFRun r = p.createRun();
-            r.setText(displayDate);
+            r.setText(date);
             r.setFontSize(BODY_SIZE);
             setEastAsianFont(r, "仿宋");
             paras.add(p);
@@ -408,6 +406,12 @@ public class WpsService {
 
     private int visualLength(String s) {
         return TextUtils.visualLength(s);
+    }
+
+    /** 将 visualLength 单位转换为 twips（基于正文字号 BODY_SIZE 16pt）。
+     *  visualLength: CJK=2 单位, ASCII=1 单位。1 单位 ≈ 半角宽 ≈ 8pt ≈ 160 twips。 */
+    private int visualWidthTwips(String s) {
+        return visualLength(s) * ptToTwips(BODY_SIZE) / 2;
     }
 
     // ═══════════════════════════════════════════════════════════
