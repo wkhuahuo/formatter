@@ -24,7 +24,7 @@ public class WpsService {
     // --- font sizes (pt) ---
     private static final double RED_HEADER_SIZE = 36;
     private static final double DOC_NUMBER_SIZE = 16;
-    private static final double TITLE_SIZE = 22;
+    private static final double TITLE_SIZE = 16;   // 三号
     private static final double BODY_SIZE = 16;
     private static final double BANJI_SIZE = 14;
 
@@ -40,7 +40,15 @@ public class WpsService {
     private static final double TWO_LINES_CM = 2 * 28 * 0.03514598;
 
     // --- colors ---
-    private static final String CHINA_RED = "EE0000";
+    private static final String CHINA_RED = "FF0000";   // 正红色
+
+    // --- 字体族名（写进 docx，实际字形取决于打开文档的环境）---
+    // 前端 frontend/src/styles/fonts.css 用同名 @font-face 把这些族名映射到工程字体库，
+    // 因此换字体只需换字体文件 / 改那一份 CSS，后端无需改动。
+    private static final String FONT_SONG = "宋体";        // 红头、文档标题
+    private static final String FONT_FANGSONG = "仿宋";    // 正文、主送机关、附注、抄送、印发
+    private static final String FONT_HEI = "黑体";         // 正文一级标题 一、
+    private static final String FONT_KAI = "楷体";         // 正文二级标题 （一）
 
     public byte[] generate(
             String redHeader, String documentNumber,
@@ -115,7 +123,7 @@ public class WpsService {
                 XWPFRun rr = rp.createRun();
                 rr.setText(recipient);
                 rr.setFontSize(BODY_SIZE);
-                setEastAsianFont(rr, "仿宋");
+                setEastAsianFont(rr, FONT_FANGSONG);
             }
 
             // --- body ---
@@ -239,13 +247,15 @@ public class WpsService {
         p1.setAlignment(ParagraphAlignment.CENTER);
         p1.setIndentationLeft(negIndent);
         p1.setIndentationRight(negIndent);
+        // 要求：红头单倍行距（显式声明，不依赖文档默认值）
+        p1.setSpacingBetween(1.0, LineSpacingRule.AUTO);
         p1.setSpacingBefore(0);
         p1.setSpacingAfter(0);
         XWPFRun r1 = p1.createRun();
         r1.setText(redHeader);
         r1.setFontSize(RED_HEADER_SIZE);
         r1.setColor(CHINA_RED);
-        setEastAsianFont(r1, "宋体");
+        setEastAsianFont(r1, FONT_SONG);
         r1.setBold(false);
 
         // 发文字号 — 仿宋3号，与发文机关标志空二行
@@ -257,7 +267,7 @@ public class WpsService {
             sp.setSpacingAfter(0);
             XWPFRun sr = sp.createRun();
             sr.setFontSize(DOC_NUMBER_SIZE);
-            setEastAsianFont(sr, "仿宋");
+            setEastAsianFont(sr, FONT_FANGSONG);
 
             XWPFParagraph p2 = doc.createParagraph();
             p2.setAlignment(ParagraphAlignment.CENTER);
@@ -268,15 +278,11 @@ public class WpsService {
             XWPFRun r2 = p2.createRun();
             r2.setText(documentNumber);
             r2.setFontSize(DOC_NUMBER_SIZE);
-            setEastAsianFont(r2, "仿宋");
+            setEastAsianFont(r2, FONT_FANGSONG);
 
-            // 红色分隔线 — 发文字号下4mm
-            XWPFParagraph p3 = doc.createParagraph();
-            p3.setAlignment(ParagraphAlignment.CENTER);
-            p3.setSpacingBefore(cmToTwips(0.4));
-            XWPFRun r3 = p3.createRun();
-            r3.setColor(CHINA_RED);
-            setParagraphBottomBorder(p3, CHINA_RED, 12);
+            // 红色分隔线 —— 直接作为发文字号段的“下框线”（12/8 pt = 1.5磅），
+            // 随该段 -2cm 的左右缩进一起向两侧延伸出版心。
+            setParagraphBottomBorder(p2, CHINA_RED, 12, 6);
         }
     }
 
@@ -296,7 +302,7 @@ public class WpsService {
         r.setText(title);
         r.setFontSize(TITLE_SIZE);
         r.setBold(false);
-        setEastAsianFont(r, "方正小标宋简体");
+        setEastAsianFont(r, FONT_SONG);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -327,16 +333,16 @@ public class WpsService {
 
             String display = text;
             if (level == 1) {
-                fontFamily = "黑体";
+                fontFamily = FONT_HEI;
                 if (text.startsWith("# ")) display = text.substring(2);
             } else if (level == 2) {
-                fontFamily = "楷体";
+                fontFamily = FONT_KAI;
                 if (text.startsWith("## ")) display = text.substring(3);
             } else if (level == 3 || level == 4) {
-                fontFamily = "仿宋";
+                fontFamily = FONT_FANGSONG;
                 if (text.startsWith("### ")) display = text.substring(4);
             } else {
-                fontFamily = "仿宋";
+                fontFamily = FONT_FANGSONG;
             }
 
             XWPFParagraph p = doc.createParagraph();
@@ -373,7 +379,7 @@ public class WpsService {
             XWPFRun r = p.createRun();
             r.setText(organization);
             r.setFontSize(BODY_SIZE);
-            setEastAsianFont(r, "仿宋");
+            setEastAsianFont(r, FONT_FANGSONG);
             p.setSpacingAfter(luokuanGap);
             paras.add(p);
         }
@@ -398,7 +404,7 @@ public class WpsService {
             XWPFRun r = p.createRun();
             r.setText(displayDate);
             r.setFontSize(BODY_SIZE);
-            setEastAsianFont(r, "仿宋");
+            setEastAsianFont(r, FONT_FANGSONG);
             paras.add(p);
         }
 
@@ -427,7 +433,7 @@ public class WpsService {
         XWPFRun r = p.createRun();
         r.setText("（" + note + "）");
         r.setFontSize(BODY_SIZE);
-        setEastAsianFont(r, "仿宋");
+        setEastAsianFont(r, FONT_FANGSONG);
         p.setIndentationFirstLine(ptToTwips(BODY_SIZE * 2));
         return p;
     }
@@ -448,6 +454,7 @@ public class WpsService {
         // ── CC ──
         if (hasCc) {
             XWPFParagraph cp = doc.createParagraph();
+            cp.setAlignment(ParagraphAlignment.LEFT);
             cp.setSpacingBetween(lineHt, LineSpacingRule.EXACT);
             cp.setSpacingBefore(0);
             cp.setSpacingAfter(0);
@@ -457,7 +464,7 @@ public class WpsService {
             XWPFRun cr = cp.createRun();
             cr.setText("抄送：" + cc);
             cr.setFontSize(BANJI_SIZE);
-            setEastAsianFont(cr, "仿宋");
+            setEastAsianFont(cr, FONT_FANGSONG);
             if (first) { cp.setSpacingBefore(ptToTwips(12)); first = false; }
             paras.add(cp);
         }
@@ -478,7 +485,7 @@ public class WpsService {
             XWPFRun ur = pp.createRun();
             ur.setText(printUnit);
             ur.setFontSize(BANJI_SIZE);
-            setEastAsianFont(ur, "仿宋");
+            setEastAsianFont(ur, FONT_FANGSONG);
 
             if (isSet(printDate)) {
                 CTTabStop tab = pp.getCTP().getPPr().addNewTabs().addNewTab();
@@ -487,7 +494,7 @@ public class WpsService {
                 XWPFRun dr = pp.createRun();
                 dr.setText("\t" + printDate + "印发");
                 dr.setFontSize(BANJI_SIZE);
-                setEastAsianFont(dr, "仿宋");
+                setEastAsianFont(dr, FONT_FANGSONG);
             }
             paras.add(pp);
         }
@@ -692,14 +699,14 @@ public class WpsService {
         bottom.setSpace(BigInteger.valueOf(0));
     }
 
-    private void setParagraphBottomBorder(XWPFParagraph p, String color, int sizeEighthsPt) {
+    private void setParagraphBottomBorder(XWPFParagraph p, String color, int sizeEighthsPt, int spacePt) {
         CTPPr ppr = p.getCTP().isSetPPr() ? p.getCTP().getPPr() : p.getCTP().addNewPPr();
         CTPBdr borders = ppr.isSetPBdr() ? ppr.getPBdr() : ppr.addNewPBdr();
         CTBorder bottom = borders.isSetBottom() ? borders.getBottom() : borders.addNewBottom();
         bottom.setVal(STBorder.SINGLE);
         bottom.setSz(BigInteger.valueOf(sizeEighthsPt));
         bottom.setColor(color);
-        bottom.setSpace(BigInteger.valueOf(1));
+        bottom.setSpace(BigInteger.valueOf(spacePt));
     }
 
     private void setSnapToGrid(XWPFParagraph p, boolean snap) {
