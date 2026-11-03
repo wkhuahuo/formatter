@@ -16,6 +16,12 @@ public class WpsController {
         this.wpsService = wpsService;
     }
 
+    /** 健康检查：Electron 主进程用它判断后端是否真正就绪 */
+    @GetMapping("/ping")
+    public ResponseEntity<?> ping() {
+        return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
     @PostMapping("/generate")
     public ResponseEntity<?> generate(@RequestBody Map<String, String> b) {
         try {

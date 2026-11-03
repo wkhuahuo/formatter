@@ -237,12 +237,28 @@ async function compile() {
   }
 }
 
-function downloadDocx() {
+function safeFileName(name) {
+  return (name || '').replace(/[\\/:*?"<>|\r\n]/g, '_').trim() || 'document'
+}
+
+async function downloadDocx() {
   if (!docxBlob) return
+
+  const defaultName = safeFileName(form.title) + '.docx'
+
+  // 桌面版：走 SaveDialog，由主进程写盘
+  if (window.electronAPI && window.electronAPI.saveDocx) {
+    const buf = await docxBlob.arrayBuffer()
+    const r = await window.electronAPI.saveDocx(new Uint8Array(buf), defaultName)
+    if (r && r.ok) return
+    if (r && r.canceled) return
+  }
+
+  // 浏览器环境 / IPC 失败兜底
   const url = URL.createObjectURL(docxBlob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'document.docx'
+  a.download = defaultName
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
