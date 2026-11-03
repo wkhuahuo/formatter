@@ -2,7 +2,7 @@
   <div class="editor-layout">
     <!-- Left: Form -->
     <div class="edit-panel">
-      <h1 class="panel-title">WPS 在线编辑系统</h1>
+      <h1 class="panel-title">{{ APP.editorTitle }}</h1>
 
       <!-- 1. 红头 -->
       <div class="section-title">红头</div>
@@ -148,8 +148,11 @@
 <script setup>
 import { ref, reactive, nextTick } from 'vue'
 import { renderAsync } from 'docx-preview'
+import { apiPostBlob } from '../api.js'
+import { APP } from '../config.js'
 
 const form = reactive({
+  templateType: 'redHeader',
   redHeader: '沁雅花园第七届业主委员会文件',
   documentNumber: '沁雅业委会发〔2026〕31号',
   title: '关于沁雅花园地下室闲置空间物资存放服务的招租通告',
@@ -195,16 +198,7 @@ async function compile() {
   compileError.value = ''
 
   try {
-    const res = await fetch('/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form)
-    })
-    if (!res.ok) {
-      const err = await res.json()
-      throw new Error(err.error || '生成失败')
-    }
-    const blob = await res.blob()
+    const blob = await apiPostBlob('/generate', form)
     docxBlob = blob
     docxReady.value = true
     loading.value = false
@@ -258,7 +252,7 @@ async function downloadDocx() {
   const url = URL.createObjectURL(docxBlob)
   const a = document.createElement('a')
   a.href = url
-  a.download = defaultName
+  a.download = `${form.printDate}${form.documentNumber}${form.title}.docx`
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
@@ -271,20 +265,21 @@ compile()
 <style scoped>
 .editor-layout {
   display: flex;
-  height: 100vh;
+  flex-wrap: wrap;
+  min-height: calc(100vh - 48px);
 }
 
 /* --- Left Panel --- */
 .edit-panel {
-  width: 460px;
-  min-width: 460px;
-  padding: 24px;
+  flex: 1 1 380px;
+  min-width: 0;
+  padding: clamp(8px, 1.5vw, 24px);
   background: #fff;
   border-right: 1px solid #e0e0e0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: clamp(4px, 0.8vw, 14px);
 }
 
 .panel-title {
@@ -310,7 +305,7 @@ compile()
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: clamp(2px, 0.35vw, 6px);
   flex: 1;
 }
 
@@ -323,7 +318,7 @@ compile()
 .form-group input,
 .form-group textarea {
   width: 100%;
-  padding: 9px 12px;
+  padding: clamp(4px, 0.5vw, 9px) clamp(6px, 0.85vw, 14px);
   border: 1px solid #d0d0d0;
   border-radius: 6px;
   font-size: 14px;
@@ -341,11 +336,11 @@ compile()
 
 .form-row {
   display: flex;
-  gap: 12px;
+  gap: clamp(4px, 0.7vw, 12px);
 }
 
 .download-btn {
-  padding: 12px 24px;
+  padding: 10px 24px;
   background: #4a90d9;
   color: #fff;
   border: none;
@@ -354,7 +349,7 @@ compile()
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .download-btn:hover:not(:disabled) {
@@ -368,10 +363,11 @@ compile()
 
 /* --- Right Panel --- */
 .preview-panel {
-  flex: 1;
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
   background: #e8e8e8;
+  min-width: 300px;
 }
 
 .preview-header {
@@ -384,6 +380,7 @@ compile()
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .download-btn-small {
@@ -461,6 +458,55 @@ compile()
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* --- Responsive: stack on narrow screens --- */
+@media (max-width: 900px) {
+  .editor-layout {
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .edit-panel {
+    flex: 0 0 auto;
+    border-right: none;
+    border-bottom: 1px solid #e0e0e0;
+    max-height: none;
+  }
+
+  .preview-panel {
+    flex: 1 1 auto;
+    min-height: 60vh;
+  }
+
+  .docx-renderer {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .panel-title {
+    font-size: 17px;
+  }
+
+  .form-row {
+    flex-direction: column;
+  }
+
+  .form-group input,
+  .form-group textarea {
+    font-size: 13px;
+  }
+
+  .download-btn {
+    padding: clamp(6px, 2vw, 10px) clamp(12px, 4vw, 20px);
+    font-size: 14px;
+  }
+
+  .preview-header {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
 </style>
 
 <!-- Global styles for docx-preview (unscoped so they apply to rendered content) -->
@@ -470,7 +516,8 @@ compile()
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   margin: 0 auto 20px auto;
   padding: 0;
-  max-width: 210mm;
+  width: 210mm;
+  max-width: 100%;
 }
 
 .docx-renderer .docx-wrapper {

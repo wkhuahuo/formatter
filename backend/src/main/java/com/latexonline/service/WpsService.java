@@ -1,5 +1,6 @@
 package com.latexonline.service;
 
+import com.latexonline.util.TextUtils;
 import org.apache.poi.xwpf.usermodel.*;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.stereotype.Service;
@@ -23,8 +24,9 @@ public class WpsService {
 
     // --- font sizes (pt) ---
     private static final double RED_HEADER_SIZE = 36;
+    private static final double RED_HEADER_LINE_HEIGHT = 46;  // 红头固定行高 46 磅
     private static final double DOC_NUMBER_SIZE = 16;
-    private static final double TITLE_SIZE = 22;
+    private static final double TITLE_SIZE = 22;   // 二号
     private static final double BODY_SIZE = 16;
     private static final double BANJI_SIZE = 14;
 
@@ -40,7 +42,15 @@ public class WpsService {
     private static final double TWO_LINES_CM = 2 * 28 * 0.03514598;
 
     // --- colors ---
-    private static final String CHINA_RED = "EE0000";
+    private static final String CHINA_RED = "FF0000";   // 正红色
+
+    // --- 字体族名（写进 docx，实际字形取决于打开文档的环境）---
+    // 前端 frontend/src/styles/fonts.css 用同名 @font-face 把这些族名映射到工程字体库，
+    // 因此换字体只需换字体文件 / 改那一份 CSS，后端无需改动。
+    private static final String FONT_SONG = "宋体";        // 红头、文档标题
+    private static final String FONT_FANGSONG = "仿宋";    // 正文、主送机关、附注、抄送、印发
+    private static final String FONT_HEI = "黑体";         // 正文一级标题 一、
+    private static final String FONT_KAI = "楷体";         // 正文二级标题 （一）
 
     public byte[] generate(
             String redHeader, String documentNumber,
@@ -49,7 +59,7 @@ public class WpsService {
             String note, String cc, String printUnit, String printDate, String printCopies
     ) throws Exception {
 
-        boolean hasRedHeader = isSet(redHeader);
+        boolean hasRedHeader = TextUtils.isSet(redHeader);
 
         // Pass 1
         byte[] docxBytes = buildDocument(
@@ -89,6 +99,7 @@ public class WpsService {
     ) throws Exception {
 
         try (XWPFDocument doc = new XWPFDocument()) {
+            ensureDefaultStyles(doc);
 
             // --- page setup: always 37mm top margin ---
             setPageMargins(doc, 3.7, bottomCm,
@@ -100,99 +111,78 @@ public class WpsService {
             }
 
             // --- title ---
-            if (isSet(title)) {
+            if (TextUtils.isSet(title)) {
                 addTitle(doc, title);
             }
 
             // --- 主送机关 (title下空一行，居左顶格) ---
-            if (isSet(recipient)) {
+            if (TextUtils.isSet(recipient)) {
                 XWPFParagraph rp = doc.createParagraph();
                 rp.setAlignment(ParagraphAlignment.LEFT);
                 rp.setSpacingBetween(BODY_LINE_HEIGHT, LineSpacingRule.EXACT);
                 rp.setSpacingBefore(0);
                 rp.setSpacingAfter(0);
-                rp.setIndentationFirstLine(0);
                 XWPFRun rr = rp.createRun();
                 rr.setText(recipient);
                 rr.setFontSize(BODY_SIZE);
-                setEastAsianFont(rr, "仿宋");
+                setEastAsianFont(rr, FONT_FANGSONG);
             }
 
             // --- body ---
-            java.util.List<XWPFParagraph> bodyParagraphs = null;
-            if (isSet(body)) {
-                bodyParagraphs = addBody(doc, body, compress);
+            if (TextUtils.isSet(body)) {
+                addBody(doc, body, compress);
             }
 
             // --- closing block ---
-            boolean hasOrg = isSet(organization);
-            boolean hasDate = isSet(date);
-            boolean hasNote = isSet(note);
-            boolean hasCc = isSet(cc);
-            boolean hasPrintUnit = isSet(printUnit);
+            boolean hasOrg = TextUtils.isSet(organization);
+            boolean hasDate = TextUtils.isSet(date);
+            boolean hasNote = TextUtils.isSet(note);
+            boolean hasCc = TextUtils.isSet(cc);
+            boolean hasPrintUnit = TextUtils.isSet(printUnit);
             boolean hasLuokuan = hasOrg || hasDate;
             boolean hasBanji = hasCc || hasPrintUnit;
             boolean hasClosing = hasLuokuan || hasNote || hasBanji;
 
-            XWPFParagraph lastBodyPara = (bodyParagraphs != null && !bodyParagraphs.isEmpty())
-                    ? bodyParagraphs.get(bodyParagraphs.size() - 1) : null;
-
             if (hasClosing) {
-                // Estimate content to calculate elastic spacing
-                int bodyH = estimateBodyHeight(body);
+                // Estimate content to calculate remaining space
+                int bodyH = estimateBodyHeight(body, compress);
+                int headerH = estimateHeaderOverhead(redHeader, documentNumber, title, recipient);
                 int luokuanH = hasLuokuan ? estimateLuokuanHeight(organization, date) : 0;
-                int noteH = hasNote ? ptToTwips(BODY_LINE_HEIGHT) : 0;
-                int banjiH = hasBanji ? estimateBanjiHeight(hasCc, isSet(printUnit)) : 0;
+                int noteH = hasNote ? ptToTwips(BODY_LINE_HEIGHT) + ptToTwips(6) : 0; // 附注行高 + 段前 6pt
+                int banjiH = hasBanji ? estimateBanjiHeight(hasCc, TextUtils.isSet(printUnit)) : 0;
 
-                // Page content height in twips (A4 29.7cm - top 3.7cm - bottom DEFAULT)
-                int pageH = (int)((29.7 - 3.7 - DEFAULT_BOTTOM_CM) * CM_TO_TWIPS);
+                // Page content height in twips (A4 29.7cm - top 3.7cm - actual bottom)
+                int pageH = (int)((29.7 - 3.7 - bottomCm) * CM_TO_TWIPS);
 
-                // Estimate space used by title + redHeader + recipient (rough)
-                int headerOverhead = ptToTwips(28 + 14 + 28 + 28); // title spacing + recipient
-
-                int usedSoFar = headerOverhead + bodyH;
-                int pagesUsed = (int)Math.ceil((double)usedSoFar / pageH);
+                int usedSoFar = headerH + bodyH;
+                int pagesUsed = Math.max(1, (int)Math.ceil((double)usedSoFar / pageH));
                 int usedOnLastPage = usedSoFar - (pagesUsed - 1) * pageH;
-                if (usedOnLastPage <= 0) usedOnLastPage = bodyH;
+                if (usedOnLastPage < 0) usedOnLastPage = 0;
 
                 int remaining = pageH - usedOnLastPage;
+                int lineHt = ptToTwips(BODY_LINE_HEIGHT);
                 int banjiNeed = banjiH + ptToTwips(4); // small margin
-                int totalClosingNeed = luokuanH + noteH + banjiNeed;
 
-                // Distribute remaining space: luokuan in middle, banji at bottom
-                int spacerBeforeLuokuan = Math.max(0, (remaining - totalClosingNeed) / 2);
-                int spacerBeforeBanji = remaining - spacerBeforeLuokuan - luokuanH - noteH - banjiNeed;
-                if (spacerBeforeBanji < 0) spacerBeforeBanji = 0;
+                // 落款前空两行（两个正常空段）
+                addEmptyParagraph(doc);
+                addEmptyParagraph(doc);
+                int luokuanGap = lineHt * 2;
 
-                if (lastBodyPara != null) {
-                    lastBodyPara.setKeepNext(true);
-                }
-
-                // Spacer before 落款
-                XWPFParagraph sp1 = doc.createParagraph();
-                sp1.setSpacingBefore(spacerBeforeLuokuan);
-                sp1.setSpacingBetween(BODY_LINE_HEIGHT, LineSpacingRule.EXACT);
-
-                java.util.List<XWPFParagraph> closingParas = new java.util.ArrayList<>();
                 if (hasLuokuan) {
-                    closingParas.addAll(addLuokuan(doc, organization, date, compress));
+                    addLuokuan(doc, organization, date, compress);
                 }
                 if (hasNote) {
-                    closingParas.add(addNote(doc, note, compress));
+                    addNote(doc, note, compress);
                 }
                 if (hasBanji) {
-                    // Push banji to page bottom
-                    XWPFParagraph sp2 = doc.createParagraph();
-                    sp2.setSpacingBefore(spacerBeforeBanji);
-                    sp2.setSpacingBetween(BODY_LINE_HEIGHT, LineSpacingRule.EXACT);
-                    closingParas.add(sp2);
-                    closingParas.addAll(addBanji(doc, cc, printUnit, printDate, hasCc, hasLuokuan || hasNote, compress));
-                }
-
-                for (int i = 0; i < closingParas.size(); i++) {
-                    XWPFParagraph cp = closingParas.get(i);
-                    cp.setKeepNext(i < closingParas.size() - 1);
-                    setKeepLines(cp, true);
+                    // 落款日期下面插入 N 个空段落，把版记推到页面底部
+                    int gap = remaining - luokuanGap - luokuanH - noteH - banjiNeed;
+                    if (gap < 0) gap = 0;
+                    int blankLines = gap / lineHt;
+                    for (int i = 0; i < blankLines; i++) {
+                        addEmptyParagraph(doc);
+                    }
+                    addBanji(doc, cc, printUnit, printDate, hasCc, hasLuokuan || hasNote, compress);
                 }
             }
 
@@ -226,6 +216,10 @@ public class WpsService {
         CTPageSz pageSz = sectPr.isSetPgSz() ? sectPr.getPgSz() : sectPr.addNewPgSz();
         pageSz.setW(BigInteger.valueOf((long)(21.0 * CM_TO_TWIPS)));
         pageSz.setH(BigInteger.valueOf((long)(29.7 * CM_TO_TWIPS)));
+
+        // 文档网格：显式设为“无网格”，避免 WPS 用其内置默认网格导致段落“对齐到网格”被勾选
+        CTDocGrid docGrid = sectPr.isSetDocGrid() ? sectPr.getDocGrid() : sectPr.addNewDocGrid();
+        docGrid.setType(STDocGrid.DEFAULT);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -239,17 +233,19 @@ public class WpsService {
         p1.setAlignment(ParagraphAlignment.CENTER);
         p1.setIndentationLeft(negIndent);
         p1.setIndentationRight(negIndent);
+        // 红头固定行高（显式声明，使高度可精确估算，便于版记贴底）
+        p1.setSpacingBetween(RED_HEADER_LINE_HEIGHT, LineSpacingRule.EXACT);
         p1.setSpacingBefore(0);
         p1.setSpacingAfter(0);
         XWPFRun r1 = p1.createRun();
         r1.setText(redHeader);
         r1.setFontSize(RED_HEADER_SIZE);
         r1.setColor(CHINA_RED);
-        setEastAsianFont(r1, "宋体");
+        setEastAsianFont(r1, FONT_SONG);
         r1.setBold(false);
 
         // 发文字号 — 仿宋3号，与发文机关标志空二行
-        if (isSet(documentNumber)) {
+        if (TextUtils.isSet(documentNumber)) {
             // 空一行（按3号字体）
             XWPFParagraph sp = doc.createParagraph();
             sp.setSpacingBetween(BODY_LINE_HEIGHT, LineSpacingRule.EXACT);
@@ -257,26 +253,23 @@ public class WpsService {
             sp.setSpacingAfter(0);
             XWPFRun sr = sp.createRun();
             sr.setFontSize(DOC_NUMBER_SIZE);
-            setEastAsianFont(sr, "仿宋");
+            setEastAsianFont(sr, FONT_FANGSONG);
 
             XWPFParagraph p2 = doc.createParagraph();
             p2.setAlignment(ParagraphAlignment.CENTER);
-            p2.setIndentationLeft(negIndent);
-            p2.setIndentationRight(negIndent);
+            p2.setIndentationLeft(0);
+            p2.setIndentationRight(0);
+            p2.setSpacingBetween(BODY_LINE_HEIGHT, LineSpacingRule.EXACT);
             p2.setSpacingBefore(0);
             p2.setSpacingAfter(0);
             XWPFRun r2 = p2.createRun();
             r2.setText(documentNumber);
             r2.setFontSize(DOC_NUMBER_SIZE);
-            setEastAsianFont(r2, "仿宋");
+            setEastAsianFont(r2, FONT_FANGSONG);
 
-            // 红色分隔线 — 发文字号下4mm
-            XWPFParagraph p3 = doc.createParagraph();
-            p3.setAlignment(ParagraphAlignment.CENTER);
-            p3.setSpacingBefore(cmToTwips(0.4));
-            XWPFRun r3 = p3.createRun();
-            r3.setColor(CHINA_RED);
-            setParagraphBottomBorder(p3, CHINA_RED, 12);
+            // 红色分隔线 —— 直接作为发文字号段的“下框线”（12/8 pt = 1.5磅），
+            // 随该段 -2cm 的左右缩进一起向两侧延伸出版心。
+            setParagraphBottomBorder(p2, CHINA_RED, 12, 6);
         }
     }
 
@@ -296,7 +289,7 @@ public class WpsService {
         r.setText(title);
         r.setFontSize(TITLE_SIZE);
         r.setBold(false);
-        setEastAsianFont(r, "方正小标宋简体");
+        setEastAsianFont(r, FONT_SONG);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -327,16 +320,16 @@ public class WpsService {
 
             String display = text;
             if (level == 1) {
-                fontFamily = "黑体";
+                fontFamily = FONT_HEI;
                 if (text.startsWith("# ")) display = text.substring(2);
             } else if (level == 2) {
-                fontFamily = "楷体";
+                fontFamily = FONT_KAI;
                 if (text.startsWith("## ")) display = text.substring(3);
             } else if (level == 3 || level == 4) {
-                fontFamily = "仿宋";
+                fontFamily = FONT_FANGSONG;
                 if (text.startsWith("### ")) display = text.substring(4);
             } else {
-                fontFamily = "仿宋";
+                fontFamily = FONT_FANGSONG;
             }
 
             XWPFParagraph p = doc.createParagraph();
@@ -344,7 +337,7 @@ public class WpsService {
             p.setSpacingBetween(lineHt, LineSpacingRule.EXACT);
             p.setSpacingBefore(0);
             p.setSpacingAfter(0);
-            p.setIndentationFirstLine(ptToTwips(BODY_SIZE * 2));
+            setFirstLineIndentChars(p, 2);
 
             XWPFRun r = p.createRun();
             r.setText(display);
@@ -357,6 +350,14 @@ public class WpsService {
         return paragraphs;
     }
 
+    /** 一个正常行距的空段落（28pt），用于落款与版记之间的空行。 */
+    private void addEmptyParagraph(XWPFDocument doc) {
+        XWPFParagraph p = doc.createParagraph();
+        p.setSpacingBetween(BODY_LINE_HEIGHT, LineSpacingRule.EXACT);
+        p.setSpacingBefore(0);
+        p.setSpacingAfter(0);
+    }
+
     // ═══════════════════════════════════════════════════════════
     //  Luokuan (落款) — right-aligned unit + date
     // ═══════════════════════════════════════════════════════════
@@ -366,39 +367,34 @@ public class WpsService {
         java.util.List<XWPFParagraph> paras = new java.util.ArrayList<>();
         int luokuanGap = compress ? 0 : ptToTwips(6);
 
-        if (isSet(organization)) {
+        if (TextUtils.isSet(organization)) {
             XWPFParagraph p = doc.createParagraph();
             p.setAlignment(ParagraphAlignment.RIGHT);
             p.setSpacingBetween(BODY_LINE_HEIGHT, LineSpacingRule.EXACT);
             XWPFRun r = p.createRun();
             r.setText(organization);
             r.setFontSize(BODY_SIZE);
-            setEastAsianFont(r, "仿宋");
+            setEastAsianFont(r, FONT_FANGSONG);
             p.setSpacingAfter(luokuanGap);
             paras.add(p);
         }
 
-        if (isSet(date)) {
+        if (TextUtils.isSet(date)) {
             XWPFParagraph p = doc.createParagraph();
             p.setAlignment(ParagraphAlignment.RIGHT);
             p.setSpacingBetween(BODY_LINE_HEIGHT, LineSpacingRule.EXACT);
-            // Center date under organization by padding spaces
-            String displayDate = date;
-            if (isSet(organization)) {
-                int orgLen = visualLength(organization);
-                int dateLen = visualLength(date);
-                if (orgLen > dateLen) {
-                    int pad = (orgLen - dateLen) / 2;
-                    StringBuilder sb = new StringBuilder();
-                    for (int i = 0; i < pad; i++) sb.append(' ');
-                    sb.append(date);
-                    displayDate = sb.toString();
+            // 日期居中于落款单位下方：用右缩进精确控制，避免空格宽度不准
+            if (TextUtils.isSet(organization)) {
+                int orgWidthTwips = visualWidthTwips(organization);
+                int dateWidthTwips = visualWidthTwips(date);
+                if (orgWidthTwips > dateWidthTwips) {
+                    p.setIndentationRight((orgWidthTwips - dateWidthTwips) / 2);
                 }
             }
             XWPFRun r = p.createRun();
-            r.setText(displayDate);
+            r.setText(date);
             r.setFontSize(BODY_SIZE);
-            setEastAsianFont(r, "仿宋");
+            setEastAsianFont(r, FONT_FANGSONG);
             paras.add(p);
         }
 
@@ -406,14 +402,27 @@ public class WpsService {
     }
 
     private int visualLength(String s) {
-        int len = 0;
-        for (char c : s.toCharArray()) {
-            if (c >= 0x4E00 && c <= 0x9FFF || c >= 0x3000 && c <= 0x303F || c >= 0xFF00 && c <= 0xFFEF)
-                len += 2;
-            else
-                len += 1;
+        return TextUtils.visualLength(s);
+    }
+
+    /** 将 visualLength 单位转换为 twips（基于正文字号 BODY_SIZE 16pt）。
+     *  visualLength: CJK=2 单位, ASCII=1 单位。1 单位 ≈ 半角宽 ≈ 8pt ≈ 160 twips。 */
+    private int visualWidthTwips(String s) {
+        return visualLength(s) * ptToTwips(BODY_SIZE) / 2;
+    }
+
+    /** 版记印发行的字符显示宽度估算（twips）。
+     *  仿宋（FangSong）字体下：CJK/全角 = 1em，半角数字/字母（ASCII）= 0.75em。
+     *  若仍按 0.5em 计，会低估日期宽度、导致空格多算而换行。 */
+    private int banjiTextWidthTwips(String s) {
+        double units = 0;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (TextUtils.isCJK(c)) units += 2.0;
+            else if (c <= 0x7F) units += 1.5;   // ASCII 半角数字/字母按 0.75em
+            else units += 2.0;
         }
-        return len;
+        return (int)Math.round(units * ptToTwips(BANJI_SIZE) / 2.0);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -427,8 +436,8 @@ public class WpsService {
         XWPFRun r = p.createRun();
         r.setText("（" + note + "）");
         r.setFontSize(BODY_SIZE);
-        setEastAsianFont(r, "仿宋");
-        p.setIndentationFirstLine(ptToTwips(BODY_SIZE * 2));
+        setEastAsianFont(r, FONT_FANGSONG);
+        setFirstLineIndentChars(p, 2);
         return p;
     }
 
@@ -443,11 +452,10 @@ public class WpsService {
         java.util.List<XWPFParagraph> paras = new java.util.ArrayList<>();
         double lineHt = BANJI_SIZE * 1.2;
 
-        boolean first = true;
-
         // ── CC ──
         if (hasCc) {
             XWPFParagraph cp = doc.createParagraph();
+            cp.setAlignment(ParagraphAlignment.LEFT);
             cp.setSpacingBetween(lineHt, LineSpacingRule.EXACT);
             cp.setSpacingBefore(0);
             cp.setSpacingAfter(0);
@@ -457,38 +465,44 @@ public class WpsService {
             XWPFRun cr = cp.createRun();
             cr.setText("抄送：" + cc);
             cr.setFontSize(BANJI_SIZE);
-            setEastAsianFont(cr, "仿宋");
-            if (first) { cp.setSpacingBefore(ptToTwips(12)); first = false; }
+            setEastAsianFont(cr, FONT_FANGSONG);
             paras.add(cp);
         }
 
-        // ── Print ──
-        if (isSet(printUnit)) {
+        // ── Print：单位靠左、日期靠最右（半角空格填充 + 分散对齐，不用表格）──
+        if (TextUtils.isSet(printUnit)) {
             XWPFParagraph pp = doc.createParagraph();
             pp.setSpacingBetween(lineHt, LineSpacingRule.EXACT);
             pp.setSpacingBefore(0);
             pp.setSpacingAfter(0);
             setSnapToGrid(pp, false);
-            // Top border (only if no CC above, otherwise CC's bottom serves as middle rule)
+            // 无抄送时，印发段自带顶框线；有抄送时，抄送段底框线即中间分隔线
             if (!hasCc) {
                 setTightTopBorder(pp, "000000");
             }
             setTightBottomBorder(pp, "000000");
 
-            XWPFRun ur = pp.createRun();
-            ur.setText(printUnit);
-            ur.setFontSize(BANJI_SIZE);
-            setEastAsianFont(ur, "仿宋");
-
-            if (isSet(printDate)) {
-                CTTabStop tab = pp.getCTP().getPPr().addNewTabs().addNewTab();
-                tab.setVal(STTabJc.RIGHT);
-                tab.setPos(BigInteger.valueOf((long)((21.0 - LEFT_CM - RIGHT_CM) * CM_TO_TWIPS)));
-                XWPFRun dr = pp.createRun();
-                dr.setText("\t" + printDate + "印发");
-                dr.setFontSize(BANJI_SIZE);
-                setEastAsianFont(dr, "仿宋");
+            String text = printUnit;
+            if (TextUtils.isSet(printDate)) {
+                String dateText = printDate + "印发";
+                int fullW = (int)((21.0 - LEFT_CM - RIGHT_CM) * CM_TO_TWIPS);
+                // 用仿宋实际字符宽度估算（ASCII=0.75em），避免空格多算导致日期换行
+                int unitW = banjiTextWidthTwips(printUnit);
+                int dateW = banjiTextWidthTwips(dateText);
+                int gapW = fullW - unitW - dateW;
+                int halfSpaceW = ptToTwips(BANJI_SIZE) / 2;   // 半角空格宽 ≈ 7pt（0.5em）
+                int halfSpaces = Math.max(0, gapW / halfSpaceW);
+                StringBuilder sb = new StringBuilder(printUnit);
+                for (int i = 0; i < halfSpaces; i++) sb.append(' ');  // 半角空格 U+0020
+                sb.append(dateText);
+                text = sb.toString();
+                pp.setAlignment(ParagraphAlignment.DISTRIBUTE);  // 分散对齐，日期贴最右
             }
+
+            XWPFRun ur = pp.createRun();
+            ur.setText(text);
+            ur.setFontSize(BANJI_SIZE);
+            setEastAsianFont(ur, FONT_FANGSONG);
             paras.add(pp);
         }
 
@@ -543,7 +557,7 @@ public class WpsService {
     private int estimateParagraphsHeight(String body, int pageWidthTwips) {
         int total = 0;
         String[] rawParas = body.split("\n");
-        int charWidth = ptToTwips(BODY_SIZE); // Chinese char ≈ font size in width
+        int halfCharW = ptToTwips(BODY_SIZE) / 2; // 半角字符宽（countCharWidthUnits 的单位）
         int indentWidth = ptToTwips(BODY_SIZE * 2);
         int lineHeight = ptToTwips(BODY_LINE_HEIGHT);
         int paraGap = ptToTwips(BODY_PARAGRAPH_GAP);
@@ -561,9 +575,9 @@ public class WpsService {
 
             boolean isHeading = classifyHeading(t) > 0;
             int effectiveWidth = isHeading ? pageWidthTwips : pageWidthTwips - indentWidth;
-            int charsPerLine = Math.max(1, effectiveWidth / charWidth);
+            int charsPerLine = Math.max(1, effectiveWidth / halfCharW);
 
-            // Count chars (Chinese: 1 char = 1 width unit; ASCII letters: 0.5 width unit)
+            // Count chars (Chinese: 1 char = 2 width units; ASCII: 1 width unit)
             int totalWidthUnits = countCharWidthUnits(display);
             int lines = (int)Math.ceil((double)totalWidthUnits / charsPerLine);
             if (lines < 1) lines = 1;
@@ -577,61 +591,96 @@ public class WpsService {
     private int countCharWidthUnits(String s) {
         int units = 0;
         for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c >= 0x4E00 && c <= 0x9FFF || c >= 0x3000 && c <= 0x303F
-                    || c >= 0xFF00 && c <= 0xFFEF) {
-                units += 2; // CJK char = 2 units
-            } else if (c <= 0x7F) {
-                units += 1; // ASCII = 1 unit
-            } else {
-                units += 2; // Other (punctuation, etc.) = 2 units
-            }
+            units += TextUtils.charWidth(s.charAt(i));
         }
         return units;
     }
 
-    private int estimateBodyHeight(String body) {
+    /** 正文高度估算（考虑换行与压缩，用于把版记推到页面底部）。 */
+    private int estimateBodyHeight(String body, boolean compress) {
         if (body == null || body.isBlank()) return 0;
+        int pageW = (int)((21.0 - LEFT_CM - RIGHT_CM) * CM_TO_TWIPS);
+        int lineHt = ptToTwips(compress ? BODY_LINE_HEIGHT - BODY_LINE_SHRINK : BODY_LINE_HEIGHT);
+        int halfCharW = ptToTwips(BODY_SIZE) / 2;   // 半角字符宽（countCharWidthUnits 的单位）
+        int indentW = ptToTwips(BODY_SIZE * 2);
+        int total = 0;
+        for (String raw : body.split("\n")) {
+            String t = raw.trim();
+            if (t.isEmpty()) {
+                total += lineHt;
+                continue;
+            }
+            String display = t;
+            if (t.startsWith("## ")) display = t.substring(3);
+            else if (t.startsWith("# ")) display = t.substring(2);
+            boolean isHeading = classifyHeading(t) > 0;
+            int effectiveW = isHeading ? pageW : pageW - indentW;
+            int charsPerLine = Math.max(1, effectiveW / halfCharW);
+            int units = countCharWidthUnits(display);
+            int lines = Math.max(1, (int)Math.ceil((double)units / charsPerLine));
+            total += lines * lineHt;
+        }
+        return total;
+    }
+
+    /** 版头（红头+文号）+ 标题 + 主送机关的高度估算。 */
+    private int estimateHeaderOverhead(String redHeader, String documentNumber, String title, String recipient) {
         int h = 0;
-        for (String line : body.split("\n")) {
-            if (line.trim().isEmpty()) h += ptToTwips(BODY_LINE_HEIGHT);
-            else h += ptToTwips(BODY_LINE_HEIGHT);
+        int pageW = (int)((21.0 - LEFT_CM - RIGHT_CM) * CM_TO_TWIPS);
+        if (TextUtils.isSet(redHeader)) {
+            h += ptToTwips(RED_HEADER_LINE_HEIGHT);  // 红头行高（固定值，与渲染一致）
+            if (TextUtils.isSet(documentNumber)) {
+                h += ptToTwips(BODY_LINE_HEIGHT);     // 文号前空行
+                h += ptToTwips(BODY_LINE_HEIGHT);     // 文号行
+            }
+        }
+        if (TextUtils.isSet(title)) {
+            h += ptToTwips(BODY_LINE_HEIGHT);         // 标题段前
+            int units = countCharWidthUnits(title);
+            int halfCharW = ptToTwips(TITLE_SIZE) / 2;
+            int charsPerLine = Math.max(1, pageW / halfCharW);
+            int lines = Math.max(1, (int)Math.ceil((double)units / charsPerLine));
+            h += lines * ptToTwips(BODY_LINE_HEIGHT); // 标题行
+            h += ptToTwips(14);                       // 标题段后
+        }
+        if (TextUtils.isSet(recipient)) {
+            h += ptToTwips(BODY_LINE_HEIGHT);         // 主送机关（按 1 行估算）
         }
         return h;
     }
 
     private int estimateLuokuanHeight(String org, String date) {
         int h = 0;
-        if (isSet(org)) h += ptToTwips(BODY_LINE_HEIGHT);
-        if (isSet(date)) h += ptToTwips(BODY_LINE_HEIGHT);
+        if (TextUtils.isSet(org)) h += ptToTwips(BODY_LINE_HEIGHT) + ptToTwips(6); // 单位行高 + 段后 6pt
+        if (TextUtils.isSet(date)) h += ptToTwips(BODY_LINE_HEIGHT);               // 日期行高
         return h;
     }
 
     private int estimateBanjiHeight(boolean hasCc, boolean hasPrint) {
         int h = 0;
-        if (hasCc) h += ptToTwips(BANJI_SIZE * 1.2) + ptToTwips(4);
-        if (hasPrint) h += ptToTwips(BANJI_SIZE * 1.2) + ptToTwips(4);
+        if (hasCc) h += ptToTwips(BANJI_SIZE * 1.2);
+        if (hasPrint) h += ptToTwips(BANJI_SIZE * 1.2);
         return h;
     }
 
     private int estimateClosingHeight(String organization, String date, String note,
                                        String cc, String printUnit, String printDate) {
-        int h = cmToTwips(CLOSING_LEADING_SPACE_CM); // leading vspace
+        int h = cmToTwips(CLOSING_LEADING_SPACE_CM);
+        boolean hasOrg = TextUtils.isSet(organization);
+        boolean hasDate = TextUtils.isSet(date);
+        boolean hasNote = TextUtils.isSet(note);
+        boolean hasCc = TextUtils.isSet(cc);
+        boolean hasPrintUnit = TextUtils.isSet(printUnit);
 
-        boolean hasOrg = isSet(organization);
-        boolean hasDate = isSet(date);
-        boolean hasNote = isSet(note);
-        boolean hasCc = isSet(cc);
-        boolean hasPrintUnit = isSet(printUnit);
-
-        if (hasOrg) h += ptToTwips(BODY_LINE_HEIGHT);
-        if (hasDate) h += ptToTwips(BODY_LINE_HEIGHT);
-        if (hasOrg && hasDate) h += ptToTwips(6); // gap
+        if (hasOrg || hasDate) {
+            h += estimateLuokuanHeight(organization, date);
+            if (hasOrg && hasDate) h += ptToTwips(6);
+        }
         if (hasNote) h += ptToTwips(BODY_LINE_HEIGHT) + ptToTwips(6);
-        if (hasCc) h += ptToTwips(BANJI_SIZE * 1.2) + ptToTwips(4); // row + border
-        if (hasPrintUnit) h += ptToTwips(BANJI_SIZE * 1.2) + ptToTwips(4);
-        if (hasCc || hasPrintUnit) h += ptToTwips(12); // spacer
-
+        if (hasCc || hasPrintUnit) {
+            h += estimateBanjiHeight(hasCc, hasPrintUnit);
+            h += ptToTwips(12);
+        }
         return h;
     }
 
@@ -692,32 +741,275 @@ public class WpsService {
         bottom.setSpace(BigInteger.valueOf(0));
     }
 
-    private void setParagraphBottomBorder(XWPFParagraph p, String color, int sizeEighthsPt) {
+    private void setParagraphBottomBorder(XWPFParagraph p, String color, int sizeEighthsPt, int spacePt) {
         CTPPr ppr = p.getCTP().isSetPPr() ? p.getCTP().getPPr() : p.getCTP().addNewPPr();
         CTPBdr borders = ppr.isSetPBdr() ? ppr.getPBdr() : ppr.addNewPBdr();
         CTBorder bottom = borders.isSetBottom() ? borders.getBottom() : borders.addNewBottom();
         bottom.setVal(STBorder.SINGLE);
         bottom.setSz(BigInteger.valueOf(sizeEighthsPt));
         bottom.setColor(color);
-        bottom.setSpace(BigInteger.valueOf(1));
+        bottom.setSpace(BigInteger.valueOf(spacePt));
     }
 
     private void setSnapToGrid(XWPFParagraph p, boolean snap) {
         CTPPr ppr = p.getCTP().isSetPPr() ? p.getCTP().getPPr() : p.getCTP().addNewPPr();
         CTOnOff grid = ppr.isSetSnapToGrid() ? ppr.getSnapToGrid() : ppr.addNewSnapToGrid();
-        grid.setVal(snap);
+        // 用 0/1 而非 true/false，兼容 WPS 对 CTOnOff 的解析
+        grid.setVal(snap ? "1" : "0");
     }
 
-    private void setKeepLines(XWPFParagraph p, boolean keep) {
+    /**
+     * 写入默认样式：显式声明默认段落样式（Normal/正文）无首行缩进/无悬挂缩进。
+     * POI 默认不生成 styles.xml，WPS/Word 会退回其内置“正文”样式（中文模板通常自带
+     * “首行缩进 2 字符”），导致未显式设置缩进的段落“特殊格式”被继承成“首行缩进”。
+     * 这里同时写入 docDefaults 与显式的默认段落样式，双重覆盖内置样式。
+     */
+    private void ensureDefaultStyles(XWPFDocument doc) {
+        XWPFStyles styles = doc.createStyles();
+        CTStyles ctStyles = CTStyles.Factory.newInstance();
+
+        // 1) docDefaults：全局默认无缩进
+        CTDocDefaults dd = ctStyles.addNewDocDefaults();
+        CTPPrDefault pprDefault = dd.addNewPPrDefault();
+        CTPPrGeneral dfltPpr = pprDefault.addNewPPr();
+        CTInd dfltInd = dfltPpr.addNewInd();
+        zeroIndent(dfltInd);
+
+        // 2) 显式“Normal”（正文）默认段落样式：覆盖 WPS 内置正文样式自带的“首行缩进 2 字符”
+        CTStyle normal = ctStyles.addNewStyle();
+        normal.setType(STStyleType.PARAGRAPH);
+        normal.setDefault(true);
+        normal.setStyleId("Normal");
+        CTString name = normal.addNewName();
+        name.setVal("Normal");
+        CTPPrGeneral normalPpr = normal.addNewPPr();
+        CTInd normalInd = normalPpr.addNewInd();
+        zeroIndent(normalInd);
+
+        styles.setStyles(ctStyles);
+    }
+
+    private void zeroIndent(CTInd ind) {
+        ind.setLeft(BigInteger.ZERO);
+        ind.setRight(BigInteger.ZERO);
+        ind.setFirstLine(BigInteger.ZERO);
+        ind.setFirstLineChars(BigInteger.ZERO);
+        ind.setHanging(BigInteger.ZERO);
+        ind.setHangingChars(BigInteger.ZERO);
+    }
+
+    /** 以“字符”为单位设置首行缩进（WPS/Word 会在“特殊格式”里显示“首行缩进 N 字符”）。 */
+    private void setFirstLineIndentChars(XWPFParagraph p, int chars) {
         CTPPr ppr = p.getCTP().isSetPPr() ? p.getCTP().getPPr() : p.getCTP().addNewPPr();
-        if (keep) {
-            CTOnOff keepLines = ppr.isSetKeepLines() ? ppr.getKeepLines() : ppr.addNewKeepLines();
-            keepLines.setVal(true);
+        CTInd ind = ppr.isSetInd() ? ppr.getInd() : ppr.addNewInd();
+        ind.setFirstLineChars(BigInteger.valueOf(chars * 100L));
+        ind.setFirstLine(BigInteger.valueOf(ptToTwips(BODY_SIZE * chars)));
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  Meeting Minutes Generator
+    // ═══════════════════════════════════════════════════════════
+
+    private static final double MM_TITLE_SIZE = 16;
+    private static final double MM_HEADING_SIZE = 16;
+    private static final double MM_BODY_SIZE = 16;
+    private static final double MM_RED_HEADER_SIZE = 22;
+    private static final double MM_DOC_NUMBER_SIZE = 16;
+    private static final double MM_LINE_HEIGHT = 28.0;
+    private static final double MM_TOP_CM = 3.7;
+    private static final double MM_BOTTOM_CM = 3.5;
+    private static final double MM_LEFT_CM = 2.8;
+    private static final double MM_RIGHT_CM = 2.6;
+    private static final double MM_HEADER_CM = 1.5;
+    private static final double MM_FOOTER_CM = 1.75;
+
+    public byte[] generateMeetingMinutes(
+            String title, String meetingTime, String meetingLocation,
+            String host, String recorder, String attendees, String attendeesOther,
+            String agenda, String content, String resolution,
+            String redHeader, String documentNumber
+    ) throws Exception {
+
+        boolean hasRedHeader = TextUtils.isSet(redHeader);
+
+        try (XWPFDocument doc = new XWPFDocument()) {
+            ensureDefaultStyles(doc);
+
+            setPageMargins(doc, MM_TOP_CM, MM_BOTTOM_CM, MM_LEFT_CM, MM_RIGHT_CM,
+                    MM_HEADER_CM, MM_FOOTER_CM);
+
+            // ── Red header ──
+            if (hasRedHeader) {
+                addMmRedHeader(doc, redHeader, documentNumber);
+            }
+
+            // ── Title ──
+            if (TextUtils.isSet(title)) {
+                XWPFParagraph tp = doc.createParagraph();
+                tp.setAlignment(ParagraphAlignment.CENTER);
+                tp.setSpacingBetween(MM_LINE_HEIGHT, LineSpacingRule.EXACT);
+                tp.setSpacingBefore(ptToTwips(28));
+                tp.setSpacingAfter(ptToTwips(14));
+                XWPFRun tr = tp.createRun();
+                tr.setText(title);
+                tr.setFontSize(MM_TITLE_SIZE);
+                setEastAsianFont(tr, "黑体");
+            }
+
+            // ── 一、会议基本信息 ──
+            if (hasAnyInfo(meetingTime, meetingLocation, host, recorder, attendees, attendeesOther)) {
+                addMmSectionHeading(doc, "一、会议基本信息");
+
+                addMmInfoLine(doc, "会议时间：", meetingTime);
+                addMmInfoLine(doc, "会议地点：", meetingLocation);
+                addMmInfoLine(doc, "主 持 人：", host);
+                addMmInfoLine(doc, "记 录 人：", recorder);
+                addMmInfoLine(doc, "出席人员：", attendees);
+                if (TextUtils.isSet(attendeesOther)) {
+                    addMmInfoLine(doc, "列席人员：", attendeesOther);
+                }
+            }
+
+            // ── 二、会议议题 ──
+            if (TextUtils.isSet(agenda)) {
+                addMmSectionHeading(doc, "二、会议议题");
+                addMmBodyParagraph(doc, agenda, true);
+            }
+
+            // ── 三、会议主要内容及议定事项 ──
+            if (TextUtils.isSet(content)) {
+                addMmSectionHeading(doc, "三、会议主要内容及议定事项");
+
+                String[] bodyParas = content.split("\n");
+                for (String para : bodyParas) {
+                    String text = para.trim();
+                    if (text.isEmpty()) continue;
+                    addMmBodyParagraph(doc, text, true);
+                }
+            }
+
+            // ── 会议决议 ──
+            if (TextUtils.isSet(resolution)) {
+                addMmSectionHeading(doc, "四、会议决议");
+                String[] resParas = resolution.split("\n");
+                for (String para : resParas) {
+                    String text = para.trim();
+                    if (text.isEmpty()) continue;
+                    addMmBodyParagraph(doc, text, true);
+                }
+            }
+
+            // ── 签字 ──
+            XWPFParagraph sigHead = doc.createParagraph();
+            sigHead.setAlignment(ParagraphAlignment.LEFT);
+            sigHead.setSpacingBetween(MM_LINE_HEIGHT, LineSpacingRule.EXACT);
+            sigHead.setSpacingBefore(ptToTwips(12));
+            sigHead.setSpacingAfter(0);
+            XWPFRun sigr = sigHead.createRun();
+            sigr.setText("五、签字");
+            sigr.setFontSize(MM_HEADING_SIZE);
+            setEastAsianFont(sigr, "黑体");
+
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            doc.write(bos);
+            return bos.toByteArray();
         }
     }
 
+    private boolean hasAnyInfo(String... values) {
+        for (String v : values) {
+            if (TextUtils.isSet(v)) return true;
+        }
+        return false;
+    }
 
-    private boolean isSet(String s) {
-        return s != null && !s.isBlank();
+    private void addMmSectionHeading(XWPFDocument doc, String heading) {
+        XWPFParagraph p = doc.createParagraph();
+        p.setAlignment(ParagraphAlignment.LEFT);
+        p.setSpacingBetween(MM_LINE_HEIGHT, LineSpacingRule.EXACT);
+        p.setSpacingBefore(ptToTwips(6));
+        p.setSpacingAfter(0);
+        XWPFRun r = p.createRun();
+        r.setText(heading);
+        r.setFontSize(MM_HEADING_SIZE);
+        setEastAsianFont(r, "黑体");
+    }
+
+    private void addMmRedHeader(XWPFDocument doc, String redHeader, String documentNumber) {
+        int negIndent = -cmToTwips(2.0);
+
+        // Red header unit — 方正小标宋 22pt, red, centered, extended beyond margins
+        XWPFParagraph p1 = doc.createParagraph();
+        p1.setAlignment(ParagraphAlignment.CENTER);
+        p1.setIndentationLeft(negIndent);
+        p1.setIndentationRight(negIndent);
+        p1.setSpacingBefore(0);
+        p1.setSpacingAfter(0);
+        XWPFRun r1 = p1.createRun();
+        r1.setText(redHeader);
+        r1.setFontSize(MM_RED_HEADER_SIZE);
+        r1.setColor(CHINA_RED);
+        setEastAsianFont(r1, "方正小标宋简体");
+
+        // Document number — 仿宋 16pt, centered
+        if (TextUtils.isSet(documentNumber)) {
+            XWPFParagraph sp = doc.createParagraph();
+            sp.setSpacingBetween(MM_LINE_HEIGHT, LineSpacingRule.EXACT);
+            sp.setSpacingBefore(0);
+            sp.setSpacingAfter(0);
+            XWPFRun sr = sp.createRun();
+            sr.setFontSize(MM_DOC_NUMBER_SIZE);
+            setEastAsianFont(sr, "仿宋");
+
+            XWPFParagraph p2 = doc.createParagraph();
+            p2.setAlignment(ParagraphAlignment.CENTER);
+            p2.setIndentationLeft(0);
+            p2.setIndentationRight(0);
+            p2.setSpacingBetween(MM_LINE_HEIGHT, LineSpacingRule.EXACT);
+            p2.setSpacingBefore(0);
+            p2.setSpacingAfter(0);
+            XWPFRun r2 = p2.createRun();
+            r2.setText(documentNumber);
+            r2.setFontSize(MM_DOC_NUMBER_SIZE);
+            setEastAsianFont(r2, "仿宋");
+
+            // Red separator line — fixed 1pt, no spacing before/after
+            XWPFParagraph p3 = doc.createParagraph();
+            p3.setAlignment(ParagraphAlignment.CENTER);
+            p3.setSpacingBetween(1.0, LineSpacingRule.EXACT);
+            p3.setSpacingBefore(0);
+            p3.setSpacingAfter(0);
+            XWPFRun r3 = p3.createRun();
+            r3.setColor(CHINA_RED);
+            setParagraphBottomBorder(p3, CHINA_RED, 12, 6);
+        }
+    }
+
+    private void addMmInfoLine(XWPFDocument doc, String label, String value) {
+        if (!TextUtils.isSet(value)) return;
+        XWPFParagraph p = doc.createParagraph();
+        p.setAlignment(ParagraphAlignment.LEFT);
+        p.setSpacingBetween(MM_LINE_HEIGHT, LineSpacingRule.EXACT);
+        p.setSpacingBefore(0);
+        p.setSpacingAfter(0);
+        XWPFRun r = p.createRun();
+        r.setText(label + "  " + value);
+        r.setFontSize(MM_BODY_SIZE);
+        setEastAsianFont(r, "仿宋");
+    }
+
+    private void addMmBodyParagraph(XWPFDocument doc, String text, boolean indent) {
+        XWPFParagraph p = doc.createParagraph();
+        p.setAlignment(ParagraphAlignment.BOTH);
+        p.setSpacingBetween(MM_LINE_HEIGHT, LineSpacingRule.EXACT);
+        p.setSpacingBefore(0);
+        p.setSpacingAfter(0);
+        if (indent) {
+            setFirstLineIndentChars(p, 2);
+        }
+        XWPFRun r = p.createRun();
+        r.setText(text);
+        r.setFontSize(MM_BODY_SIZE);
+        setEastAsianFont(r, "仿宋");
     }
 }

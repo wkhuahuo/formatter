@@ -1,0 +1,72 @@
+/* ============================================================================
+   公文标准字体族名 → 工程字体库 映射
+
+   为什么需要这个文件：
+     后端生成的 .docx 只写入字体“名字”（宋体 / 仿宋 / 黑体 / 楷体），
+     而 docx-preview 是在浏览器里用 HTML/CSS 渲染的。浏览器上如果没有这几个
+     族名，就会静默回退成默认字体，导致“预览和 Word 不一样”。
+
+   做法：
+     用 @font-face 把这几个标准族名**别名**到真实字体文件上。
+     这样后端代码一行都不用改，换字体也只需改本文件。
+
+   查找顺序（src 从上到下，谁先成功用谁）：
+     本机原生字体 local(...) → 工程字体库 url(/fonts/...) → 本机开源字体 local(...)
+
+   字体文件放哪、放什么名字：见 frontend/public/fonts/README.md
+   ========================================================================== */
+
+/* --- 宋体：红头（小初 36pt）、文档标题（三号 16pt） --- */
+@font-face {
+  font-family: "宋体";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src:
+    local("SimSun"), local("宋体"), local("NSimSun"),
+    url("/fonts/songti.woff2") format("woff2"),
+    url("/fonts/songti.ttf") format("truetype"),
+    local("Noto Serif CJK SC"), local("Noto Serif SC"), local("Source Han Serif SC"),
+    local("AR PL UMing CN");
+}
+
+/* --- 仿宋：正文、主送机关、附注、抄送、印发（本机无任何仿宋，必须放文件） --- */
+@font-face {
+  font-family: "仿宋";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src:
+    local("FangSong"), local("仿宋"), local("FangSong_GB2312"), local("仿宋_GB2312"),
+    url("/fonts/fangsong.woff2") format("woff2"),
+    url("/fonts/fangsong.ttf") format("truetype"),
+    local("Zhuque Fangsong (technical preview)"), local("朱雀仿宋（预览测试版）"),
+    local("Noto Serif CJK SC");
+}
+
+/* --- 黑体：正文一级标题「一、」 --- */
+@font-face {
+  font-family: "黑体";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src:
+    local("SimHei"), local("黑体"),
+    url("/fonts/heiti.woff2") format("woff2"),
+    url("/fonts/heiti.ttf") format("truetype"),
+    local("Noto Sans CJK SC"), local("Noto Sans SC"), local("Source Han Sans SC"),
+    local("WenQuanYi Micro Hei");
+}
+
+/* --- 楷体：正文二级标题「（一）」 --- */
+@font-face {
+  font-family: "楷体";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src:
+    local("KaiTi"), local("楷体"), local("KaiTi_GB2312"), local("楷体_GB2312"),
+    url("/fonts/kaiti.woff2") format("woff2"),
+    url("/fonts/kaiti.ttf") format("truetype"),
+    local("LXGW WenKai"), local("AR PL UKai CN"), local("Noto Serif CJK SC");
+}
