@@ -31,10 +31,12 @@ Write-Info "[检查] 验证依赖工具..."
 $tools = @("node", "npm", "java", "mvn", "git")
 $toolNames = @("Node.js", "npm", "Java", "Maven", "Git")
 
-for ($i = 0; $i -lt $tools.Length; $i++) {
-    $cmd = $tools[$i]
-    $name = $toolNames[$i]
-    if (-not (Get-Command $cmd -ErrorAction SilentlyContinue)) {
+foreach ($tool in $tools) {
+    $index = [Array]::IndexOf($tools, $tool)
+    $name = $toolNames[$index]
+    
+    $cmd = Get-Command $tool -ErrorAction SilentlyContinue
+    if (-not $cmd) {
         Write-Err "错误: 未找到 $name，请先安装"
         exit 1
     }
