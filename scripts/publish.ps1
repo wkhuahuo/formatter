@@ -5,9 +5,11 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$Version,
     
-    [string]$RemoteName = "github",
+    [string]$RemoteName = "origin",  # GitHub 作为主仓库
     
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    
+    [switch]$SyncToGitee = $true  # 默认同步到 Gitee 镜像
 )
 
 $ErrorActionPreference = "Stop"
@@ -22,7 +24,10 @@ $TagVersion = "v$Version"
 
 Write-Host "=============== WPS 公文编辑器 发布 ===============" -ForegroundColor Cyan
 Write-Host "版本号: $TagVersion" -ForegroundColor Yellow
-Write-Host "远程仓库: $RemoteName" -ForegroundColor Yellow
+Write-Host "主仓库: $RemoteName (GitHub)" -ForegroundColor Yellow
+if ($SyncToGitee) {
+    Write-Host "镜像仓库: gitee (Gitee)" -ForegroundColor Yellow
+}
 
 # 检查远程仓库是否存在
 $Remotes = git remote -v
@@ -30,7 +35,7 @@ if (-not ($Remotes | Select-String $RemoteName)) {
     Write-Host "错误: 未找到名为 '$RemoteName' 的远程仓库" -ForegroundColor Red
     Write-Host "当前远程仓库:" -ForegroundColor Yellow
     Write-Host $Remotes
-    Write-Host "`n提示: 使用 'git remote add github https://github.com/YOUR_USERNAME/latexOnline.git' 添加" -ForegroundColor Yellow
+    Write-Host "`n提示: 使用 'git remote add origin https://github.com/YOUR_USERNAME/latexOnline.git' 添加" -ForegroundColor Yellow
     exit 1
 }
 
@@ -73,17 +78,32 @@ git commit -m "chore: bump version to $Version"
 Write-Host "      已提交版本更新" -ForegroundColor Green
 
 # 创建并推送标签
-Write-Host "`n[4/4] 创建并推送标签..." -ForegroundColor Yellow
+Write-Host "`n[4/5] 创建标签..." -ForegroundColor Yellow
 git tag $TagVersion
-git push $RemoteName main
+Write-Host "      已创建标签 $TagVersion" -ForegroundColor Green
+
+# 推送到 GitHub（主仓库）
+Write-Host "`n[5/5] 推送到远程仓库..." -ForegroundColor Yellow
+Write-Host "      推送到 GitHub ($RemoteName)..." -ForegroundColor White
+$CurrentBranch = git rev-parse --abbrev-ref HEAD
+git push $RemoteName $CurrentBranch
 git push $RemoteName $TagVersion
+Write-Host "      ✅ 已推送到 GitHub" -ForegroundColor Green
+
+# 推送到 Gitee（镜像仓库）
+if ($SyncToGitee) {
+    Write-Host "      同步到 Gitee (gitee)..." -ForegroundColor White
+    git push gitee $CurrentBranch 2>&1 | Out-Null
+    git push gitee $TagVersion 2>&1 | Out-Null
+    Write-Host "      ✅ 已同步到 Gitee" -ForegroundColor Green
+}
 
 Write-Host "`n=============== 发布完成 ===============" -ForegroundColor Green
 Write-Host "`n后续步骤:" -ForegroundColor Cyan
 Write-Host "1. 访问 GitHub Actions 查看构建进度:" -ForegroundColor Yellow
-Write-Host "   https://github.com/YOUR_USERNAME/latexOnline/actions" -ForegroundColor White
+Write-Host "   https://github.com/wkhuahuo/formatter/actions" -ForegroundColor White
 Write-Host "`n2. 构建完成后，在 GitHub Release 页面查看:" -ForegroundColor Yellow
-Write-Host "   https://github.com/YOUR_USERNAME/latexOnline/releases/tag/$TagVersion" -ForegroundColor White
+Write-Host "   https://github.com/wkhuahuo/formatter/releases/tag/$TagVersion" -ForegroundColor White
 Write-Host "`n3. 下载构建产物并上传到 Gitee Release 页面:" -ForegroundColor Yellow
 Write-Host "   https://gitee.com/wkhuahuo/latexOnline/releases/new" -ForegroundColor White
 Write-Host "`n提示: 使用以下命令查看构建产物" -ForegroundColor Cyan
