@@ -1,6 +1,5 @@
 #!/usr/bin/env pwsh
 # WPS 公文编辑器 - 一键构建和打包脚本
-# 用法: .\scripts\build-package.ps1 [-Version "1.0.0"]
 
 param(
     [string]$Version = "",
@@ -10,13 +9,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# 颜色定义
 function Write-Info($msg) { Write-Host $msg -ForegroundColor Cyan }
 function Write-Success($msg) { Write-Host $msg -ForegroundColor Green }
 function Write-Warn($msg) { Write-Host $msg -ForegroundColor Yellow }
 function Write-Err($msg) { Write-Host $msg -ForegroundColor Red }
 
-# 获取项目根目录
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $Root
 
@@ -28,18 +25,35 @@ Write-Host ""
 # 检查依赖
 Write-Info "[检查] 验证依赖工具..."
 
-$tools = @("node", "npm", "java", "mvn", "git")
-$toolNames = @("Node.js", "npm", "Java", "Maven", "Git")
+$missing = $false
 
-foreach ($tool in $tools) {
-    $index = [Array]::IndexOf($tools, $tool)
-    $name = $toolNames[$index]
-    
-    $cmd = Get-Command $tool -ErrorAction SilentlyContinue
-    if (-not $cmd) {
-        Write-Err "错误: 未找到 $name，请先安装"
-        exit 1
-    }
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    Write-Err "错误: 未找到 Node.js，请先安装"
+    $missing = $true
+}
+
+if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+    Write-Err "错误: 未找到 npm，请先安装 Node.js"
+    $missing = $true
+}
+
+if (-not (Get-Command java -ErrorAction SilentlyContinue)) {
+    Write-Err "错误: 未找到 Java，请先安装"
+    $missing = $true
+}
+
+if (-not (Get-Command mvn -ErrorAction SilentlyContinue)) {
+    Write-Err "错误: 未找到 Maven，请先安装"
+    $missing = $true
+}
+
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Err "错误: 未找到 Git，请先安装"
+    $missing = $true
+}
+
+if ($missing) {
+    exit 1
 }
 
 Write-Success "  ✓ 所有依赖工具已就绪"
@@ -49,8 +63,7 @@ if ([string]::IsNullOrEmpty($Version)) {
     $PackageJson = Get-Content "package.json" -Raw | ConvertFrom-Json
     $Version = $PackageJson.version
     Write-Info "[信息] 使用 package.json 中的版本号: v$Version"
-}
-else {
+} else {
     Write-Info "[信息] 使用指定版本号: v$Version"
 }
 
@@ -84,7 +97,6 @@ Write-Success "  ✓ 后端构建完成"
 Write-Host ""
 Write-Info "[3/5] 准备打包资源..."
 
-# 复制 JAR
 $JarSource = Get-ChildItem "$Root/backend/target/latex-online-backend-*.jar" | Select-Object -First 1
 if (-not $JarSource) {
     Write-Err "错误: 未找到后端 JAR 文件"
@@ -100,9 +112,7 @@ if (-not $SkipJRE) {
     $JrePath = "$Root/electron/resources/jre"
     if (-not (Test-Path "$JrePath/bin/java.exe")) {
         Write-Warn "  ⚠ JRE 未找到，将尝试使用系统 JRE"
-        Write-Warn "    提示: 运行 scripts/build-runtime.sh 生成精简 JRE"
-    }
-    else {
+    } else {
         Write-Success "  ✓ JRE 已就绪"
     }
 }
@@ -121,8 +131,6 @@ Write-Host ""
 Write-Info "[5/5] 打包 Electron 应用..."
 Set-Location $Root
 npm install --silent
-
-# 执行打包
 npx electron-builder --win --x64
 
 # 查找构建产物
@@ -153,5 +161,4 @@ Write-Info "下一步:"
 Write-Host "  运行发布脚本: .\scripts\release-deploy.ps1 -Version `"$Version`""
 Write-Host ""
 
-# 返回构建产物路径供其他脚本使用
 return $ZipFiles[0].FullName
