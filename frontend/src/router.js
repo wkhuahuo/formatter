@@ -16,10 +16,11 @@ const router = createRouter({
 
 router.beforeEach(async (to, from) => {
   const { auth } = await import('./auth.js')
-  if (auth.ready && !auth.isLoggedIn) {
-    auth.requireLogin()
-    return false
-  }
+  // 允许未登录访问，不强制登录
+  // if (auth.ready && !auth.isLoggedIn) {
+  //   auth.requireLogin()
+  //   return false
+  // }
 })
 
 export default router

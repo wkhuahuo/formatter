@@ -59,3 +59,22 @@ export async function apiPostBlob(path, body) {
   }
   return res.blob()
 }
+
+export function apiDelete(path) {
+  return request(path, { method: 'DELETE' })
+}
+
+export async function apiGetBlob(path) {
+  const headers = {}
+  const token = localStorage.getItem('token')
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const res = await fetch(BASE + path, { headers })
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      import('./auth.js').then(m => m.auth.requireLogin())
+    }
+    throw new Error('下载失败')
+  }
+  return res.blob()
+}

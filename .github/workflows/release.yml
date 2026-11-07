@@ -1,0 +1,117 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*' # 推送版本标签时触发，如 v1.0.0
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Set up Java
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+        cache: 'maven'
+
+    - name: Set up Maven
+      uses: stCarolas/setup-maven@v4.5
+      with:
+        maven-version: '3.9.6'
+
+    - name: Cache node modules
+      uses: actions/cache@v3
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm install
+
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
+
+    - name: Build backend
+      run: |
+        cd backend
+        mvn -q clean package -DskipTests
+
+    - name: Copy JAR to electron resources
+      run: |
+        New-Item -ItemType Directory -Force -Path "electron/resources/backend"
+        Copy-Item backend/target/latex-online-backend-*.jar -Destination "electron/resources/backend/app.jar"
+
+    - name: Prepare JRE for packaging
+      run: |
+        # 检查 JRE 是否存在，如果不存在则使用系统 JRE 或跳过
+        if (-not (Test-Path "electron/resources/jre/bin/java.exe")) {
+            Write-Host "警告: JRE 未找到，将尝试使用系统 JRE"
+            Write-Host "提示: 为确保应用独立运行，请先在本地运行 scripts/build-runtime.sh 生成 JRE"
+        }
+
+    - name: Build Electron app
+      run: |
+        npm install
+        npx electron-builder --win --x64
+
+    - name: List build output
+      run: |
+        Write-Host "=== Build output files ==="
+        Get-ChildItem -Path release -Recurse | Select-Object FullName, Length
+
+    - name: Get version from tag
+      id: get_version
+      run: |
+        $version = "${{ github.ref_name }}" -replace '^v', ''
+        echo "version=$version" >> $env:GITHUB_OUTPUT
+      shell: pwsh
+
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        name: WPS 公文编辑器 v${{ steps.get_version.outputs.version }}
+        body: |
+          ## 更新内容
+          
+          - 自动构建版本 ${{ steps.get_version.outputs.version }}
+          - 构建时间: ${{ github.event.head_commit.timestamp }}
+          - 提交信息: ${{ github.event.head_commit.message }}
+          
+          ## 下载说明
+          
+          - `WpsDocEditor-${{ steps.get_version.outputs.version }}-win.zip` - Windows 64位免安装版
+        files: |
+          release/*.zip
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: wps-doc-editor-windows
+        path: release/*.zip
+        retention-days: 30

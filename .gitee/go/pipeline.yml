@@ -1,0 +1,87 @@
+# Gitee Go CI/CD 配置示例
+# 文件路径: .gitee/go/pipeline.yml
+# 注意: Gitee Go 需要开通才能使用
+
+name: Build and Release on Gitee
+
+on:
+  push:
+    tags:
+      - 'v*'  # 推送版本标签时触发
+
+stages:
+  - stage:
+    name: build
+    jobs:
+      - job:
+        name: build-windows
+        # 使用 Windows 环境
+        runs-on: windows-latest
+        
+        steps:
+          # 检出代码
+          - step: checkout@1.0.0
+            name: 检出代码
+            
+          # 安装 Node.js
+          - step: setupNode@1.0.0
+            name: 安装 Node.js
+            inputs:
+              nodeVersion: '18'
+              
+          # 安装 Java
+          - step: setupJava@1.0.0
+            name: 安装 Java
+            inputs:
+              javaVersion: '17'
+              distribution: 'temurin'
+              
+          # 安装 Maven
+          - step: setupMaven@1.0.0
+            name: 安装 Maven
+            inputs:
+              mavenVersion: '3.9.6'
+              
+          # 构建前端
+          - step: script@1.0.0
+            name: 构建前端
+            inputs:
+              script: |
+                cd frontend
+                npm install
+                npm run build
+                
+          # 构建后端
+          - step: script@1.0.0
+            name: 构建后端
+            inputs:
+              script: |
+                cd backend
+                mvn clean package -DskipTests
+                
+          # 打包 Electron
+          - step: script@1.0.0
+            name: 打包 Electron
+            inputs:
+              script: |
+                # 复制 JAR
+                mkdir -p electron/resources/backend
+                copy backend\target\latex-online-backend-*.jar electron\resources\backend\app.jar
+                
+                # 安装依赖并打包
+                npm install
+                npx electron-builder --win --x64
+                
+          # 上传到 Gitee Release
+          - step: uploadArtifact@1.0.0
+            name: 上传构建产物
+            inputs:
+              artifactPath: 'release/*.zip'
+              releaseNameTag: ${{ git.tag }}
+              releaseName: 'WPS 公文编辑器 ${{ git.tag }}'
+
+# 注意:
+# 1. Gitee Go 的配置语法可能与 GitHub Actions 不同
+# 2. 需要根据 Gitee Go 的实际支持的功能调整
+# 3. 详细文档请参考: https://gitee.com/help/articles/4286
+# 4. 如果 Gitee Go 不支持某些功能，可能需要使用外部 CI

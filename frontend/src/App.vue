@@ -32,9 +32,10 @@ const showAdmin = ref(false)
 
 onMounted(async () => {
   await auth.checkAuth()
-  if (!auth.isLoggedIn) {
-    showLogin.value = true
-  }
+  // 不自动弹出登录框，允许未登录使用
+  // if (!auth.isLoggedIn) {
+  //   showLogin.value = true
+  // }
 })
 
 watch(() => auth.needsLogin, (val) => {

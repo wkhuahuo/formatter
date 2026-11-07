@@ -28,12 +28,17 @@ function createWindow() {
 }
 
 async function bootstrap() {
+  console.log('[Bootstrap] Starting...')
   const layout = resolveLayout(app.isPackaged)
+  console.log('[Bootstrap] Layout:', layout)
+  
   const missing = checkLayout(layout)
+  console.log('[Bootstrap] Missing resources:', missing)
 
   const win = createWindow()
 
   if (missing.length) {
+    console.error('[Bootstrap] Missing resources, showing error dialog')
     win.show()
     dialog.showErrorBox(
       '启动失败：缺少运行资源',
@@ -46,13 +51,19 @@ async function bootstrap() {
   const logPath = app.isPackaged
     ? path.join(app.getPath('userData'), 'logs', 'backend.log')
     : null
+  console.log('[Bootstrap] Log path:', logPath)
 
   try {
+    console.log('[Bootstrap] Starting backend...')
     const { child, port } = await startBackend(layout, logPath)
+    console.log('[Bootstrap] Backend started on port:', port)
     backendChild = child
+    console.log('[Bootstrap] Loading frontend from:', 'http://127.0.0.1:' + port + '/')
     await win.loadURL('http://127.0.0.1:' + port + '/')
+    console.log('[Bootstrap] Frontend loaded successfully')
     win.show()
   } catch (e) {
+    console.error('[Bootstrap] Backend startup failed:', e)
     win.show()
     dialog.showErrorBox('后端启动失败', String((e && e.message) || e))
     app.quit()

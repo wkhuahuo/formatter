@@ -12,6 +12,7 @@ node_modules/
 # Electron
 release/
 electron/resources/jre/
+electron/resources/backend/
 
 # IDE
 .idea/

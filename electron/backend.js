@@ -112,6 +112,17 @@ async function waitForPing(port) {
  */
 function startBackend(layout, logPath) {
   return new Promise((resolve, reject) => {
+    // 确保数据目录存在（SQLite 不会自动创建父目录）
+    const dataDir = path.join(path.dirname(layout.jar), 'data')
+    if (!fs.existsSync(dataDir)) {
+      try {
+        fs.mkdirSync(dataDir, { recursive: true })
+        console.log('[Backend] Created data directory:', dataDir)
+      } catch (e) {
+        console.error('[Backend] Failed to create data directory:', e.message)
+      }
+    }
+
     const args = [
       '-Dfile.encoding=UTF-8',
       '-jar',

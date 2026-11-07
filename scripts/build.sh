@@ -17,6 +17,12 @@ echo "[2/4] 构建后端 -> backend/target/*.jar"
 cd "$ROOT/backend"
 mvn -q clean package -DskipTests
 
+# 统一成固定文件名，避免 pom 版本号变化导致打包配置失配
+mkdir -p "$ROOT/electron/resources/backend"
+cp "$ROOT"/backend/target/latex-online-backend-*.jar \
+   "$ROOT/electron/resources/backend/app.jar"
+echo "      已复制 jar -> electron/resources/backend/app.jar"
+
 echo "[3/4] 生成精简 JRE -> electron/resources/jre"
 "$ROOT/scripts/build-runtime.sh"
 

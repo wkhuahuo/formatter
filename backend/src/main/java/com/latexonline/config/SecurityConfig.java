@@ -34,9 +34,15 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // 桌面端/同源部署：前端静态资源必须匿名可访问，否则窗口白屏
+                .requestMatchers("/", "/index.html", "/favicon.ico",
+                        "/assets/**", "/fonts/**").permitAll()
+                // vue-router history 模式直达路径，由 SpaForwardController 转发到 index.html
+                .requestMatchers("/editor", "/meeting-minutes", "/admin").permitAll()
+                // Electron 主进程探活，必须在认证前放行
+                .requestMatchers("/api/ping").permitAll()
                 .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                 .requestMatchers("/api/auth/approve/**", "/api/auth/users").hasRole("ADMIN")
-                .requestMatchers("/h2-console/**").permitAll()
                 .anyRequest().authenticated()
             )
             .headers(headers -> headers.frameOptions(fo -> fo.disable()))

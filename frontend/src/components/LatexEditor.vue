@@ -150,6 +150,7 @@ import { ref, reactive, nextTick } from 'vue'
 import { renderAsync } from 'docx-preview'
 import { apiPostBlob } from '../api.js'
 import { APP } from '../config.js'
+import { saveDocument, saveToFile } from '../documents.js'
 
 const form = reactive({
   templateType: 'redHeader',
@@ -171,8 +172,11 @@ const docxReady = ref(false)
 const loading = ref(false)
 const compileError = ref('')
 const docxRenderer = ref(null)
+const saving = ref(false)
+const saveStatus = ref('')
 
 let debounceTimer = null
+let statusTimer = null
 let docxBlob = null
 
 function scheduleCompile() {
@@ -236,27 +240,40 @@ function safeFileName(name) {
 }
 
 async function downloadDocx() {
-  if (!docxBlob) return
+  if (!docxBlob || saving.value) return
 
-  const defaultName = safeFileName(form.title) + '.docx'
+  const fileName = safeFileName(
+    `${form.printDate}${form.documentNumber}${form.title}`
+  ) + '.docx'
 
-  // 桌面版：走 SaveDialog，由主进程写盘
-  if (window.electronAPI && window.electronAPI.saveDocx) {
-    const buf = await docxBlob.arrayBuffer()
-    const r = await window.electronAPI.saveDocx(new Uint8Array(buf), defaultName)
-    if (r && r.ok) return
-    if (r && r.canceled) return
+  saving.value = true
+  saveStatus.value = '正在保存历史记录…'
+
+  // 1) 落库（失败不阻断下载，只提示）
+  let archived = false
+  try {
+    await saveDocument('redHeader', form.title, fileName, docxBlob)
+    archived = true
+  } catch (e) {
+    saveStatus.value = '历史记录保存失败：' + e.message
   }
 
-  // 浏览器环境 / IPC 失败兜底
-  const url = URL.createObjectURL(docxBlob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${form.printDate}${form.documentNumber}${form.title}.docx`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+  // 2) 写盘 / 浏览器下载
+  const r = await saveToFile(docxBlob, fileName)
+  if (r.via === 'canceled') {
+    saveStatus.value = ''
+  } else if (archived) {
+    saveStatus.value = r.via === 'electron'
+      ? '已保存到：' + r.path
+      : '已开始下载，并已存入历史记录'
+  }
+  saving.value = false
+  clearStatusLater()
+}
+
+function clearStatusLater() {
+  clearTimeout(statusTimer)
+  statusTimer = setTimeout(() => { saveStatus.value = '' }, 6000)
 }
 
 compile()
