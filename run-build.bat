@@ -1,8 +1,8 @@
 @echo off
 chcp 65001 >nul
 echo ====================================
-echo   WPS 公文编辑器 - 一键构建打包
+echo   WPS Doc Editor - Build
 echo ====================================
 echo.
-powershell -ExecutionPolicy Bypass -File "%~dp0scripts\build-package.ps1" %*
+powershell -ExecutionPolicy Bypass -File "%~dp0scripts\build-simple.ps1" %*
 pause
