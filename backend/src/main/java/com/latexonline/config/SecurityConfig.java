@@ -3,7 +3,6 @@ package com.latexonline.config;
 import com.latexonline.security.JwtFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -34,16 +33,8 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // 桌面端/同源部署：前端静态资源必须匿名可访问，否则窗口白屏
-                .requestMatchers("/", "/index.html", "/favicon.ico",
-                        "/assets/**", "/fonts/**").permitAll()
-                // vue-router history 模式直达路径，由 SpaForwardController 转发到 index.html
-                .requestMatchers("/editor", "/meeting-minutes", "/admin").permitAll()
-                // Electron 主进程探活，必须在认证前放行
-                .requestMatchers("/api/ping").permitAll()
-                .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
-                .requestMatchers("/api/auth/approve/**", "/api/auth/users").hasRole("ADMIN")
-                .anyRequest().authenticated()
+                // 桌面端所有接口均无需登录，JwtFilter 仍会解析 token（为未来网页版预留）
+                .anyRequest().permitAll()
             )
             .headers(headers -> headers.frameOptions(fo -> fo.disable()))
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

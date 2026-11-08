@@ -28,6 +28,8 @@ export const auth = reactive({
       this.user = await apiGet('/auth/me')
     } catch {
       this.logout()
+      // 启动时 token 过期不弹登录框，静默回到未登录状态
+      this.needsLogin = false
     } finally {
       this.ready = true
     }

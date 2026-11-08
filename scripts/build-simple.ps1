@@ -7,6 +7,10 @@ param(
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $Root
 
+# 配置国内镜像（解决 GitHub 下载超时）
+$env:ELECTRON_MIRROR = "https://npmmirror.com/mirrors/electron/"
+$env:ELECTRON_BUILDER_BINARIES_MIRROR = "https://npmmirror.com/mirrors/electron-builder-binaries/"
+
 Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host "  WPS Doc Editor - Build" -ForegroundColor Cyan
 Write-Host "=====================================" -ForegroundColor Cyan
@@ -31,7 +35,7 @@ try {
 
 # Read version
 if ([string]::IsNullOrEmpty($Version)) {
-    $PackageJson = Get-Content "package.json" -Raw | ConvertFrom-Json
+    $PackageJson = Get-Content "package.json" -Raw -Encoding UTF8 | ConvertFrom-Json
     $Version = $PackageJson.version
 }
 Write-Host "Version: v$Version" -ForegroundColor Cyan

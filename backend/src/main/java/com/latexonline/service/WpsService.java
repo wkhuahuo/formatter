@@ -15,8 +15,6 @@ public class WpsService {
     private static final double CM_TO_TWIPS = 567.0;
     private static final double DEFAULT_BOTTOM_CM = 3.5;
     private static final double MIN_BOTTOM_CM = 2.0;
-    private static final double TOP_CM_RED = 4.5;
-    private static final double TOP_CM_NO_RED = 3.7;
     private static final double LEFT_CM = 2.8;
     private static final double RIGHT_CM = 2.6;
     private static final double HEADER_FROM_TOP_CM = 1.5;
@@ -35,7 +33,6 @@ public class WpsService {
     private static final double BODY_PARAGRAPH_GAP = 4.0;  // \parskip base
     private static final double BODY_LINE_SHRINK = 3.0;    // minus 3pt
     private static final double CLOSING_LEADING_SPACE_CM = 3.0;   // vspace before closing
-    private static final double CLOSING_LEADING_SHRINK_CM = 2.5;  // minus 2.5cm
     private static final double CLOSING_SAFETY_PT = 14.0;  // margin above closing block
 
     // orphan threshold: 2 body lines ≈ 1.97 cm
@@ -47,10 +44,11 @@ public class WpsService {
     // --- 字体族名（写进 docx，实际字形取决于打开文档的环境）---
     // 前端 frontend/src/styles/fonts.css 用同名 @font-face 把这些族名映射到工程字体库，
     // 因此换字体只需换字体文件 / 改那一份 CSS，后端无需改动。
-    private static final String FONT_SONG = "宋体";        // 红头、文档标题
-    private static final String FONT_FANGSONG = "仿宋";    // 正文、主送机关、附注、抄送、印发
-    private static final String FONT_HEI = "黑体";         // 正文一级标题 一、
-    private static final String FONT_KAI = "楷体";         // 正文二级标题 （一）
+    private static final String FONT_SONG = "宋体";              // 红头
+    private static final String FONT_TITLE = "方正小标宋简体";    // 文档标题（GB/T 9704 标准）
+    private static final String FONT_FANGSONG = "仿宋";          // 正文、主送机关、附注、抄送、印发
+    private static final String FONT_HEI = "黑体";               // 正文一级标题 一、
+    private static final String FONT_KAI = "楷体";               // 正文二级标题 （一）
 
     public byte[] generate(
             String redHeader, String documentNumber,
@@ -289,7 +287,7 @@ public class WpsService {
         r.setText(title);
         r.setFontSize(TITLE_SIZE);
         r.setBold(false);
-        setEastAsianFont(r, FONT_SONG);
+        setEastAsianFont(r, FONT_TITLE);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -949,7 +947,7 @@ public class WpsService {
         r1.setText(redHeader);
         r1.setFontSize(MM_RED_HEADER_SIZE);
         r1.setColor(CHINA_RED);
-        setEastAsianFont(r1, "方正小标宋简体");
+        setEastAsianFont(r1, FONT_TITLE);
 
         // Document number — 仿宋 16pt, centered
         if (TextUtils.isSet(documentNumber)) {

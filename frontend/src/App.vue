@@ -68,23 +68,29 @@ body {
    与 Word/WPS 实际渲染效果一致。 */
 @font-face {
   font-family: '仿宋';
-  src: local('仿宋'), local('STFangsong'), local('FangSong'), local('华文仿宋');
+  src: local('仿宋'), local('STFangsong'), local('FangSong'), local('华文仿宋'),
+       local('Zhuque Fangsong (technical preview)'), local('朱雀仿宋（预览测试版）');
 }
 @font-face {
   font-family: '黑体';
-  src: local('黑体'), local('Heiti SC'), local('SimHei'), local('STHeiti');
+  src: local('黑体'), local('Heiti SC'), local('SimHei'), local('STHeiti'),
+       local('Noto Sans CJK SC'), local('Source Han Sans SC');
 }
 @font-face {
   font-family: '楷体';
-  src: local('楷体'), local('Kaiti SC'), local('KaiTi'), local('STKaiti');
+  src: local('楷体'), local('Kaiti SC'), local('KaiTi'), local('STKaiti'),
+       local('LXGW WenKai'), local('霞鹜文楷');
 }
 @font-face {
   font-family: '宋体';
-  src: local('宋体'), local('Songti SC'), local('SimSun'), local('STSong');
+  src: local('宋体'), local('Songti SC'), local('SimSun'), local('STSong'),
+       local('Noto Serif CJK SC'), local('Source Han Serif SC');
 }
 @font-face {
   font-family: '方正小标宋简体';
-  src: local('方正小标宋简体'), local('Songti SC'), local('SimSun'), local('STSong'), local('宋体');
+  src: local('方正小标宋简体'), local('FZXiaoBiaoSong-B05S'),
+       local('Songti SC'), local('SimSun'), local('STSong'), local('宋体'),
+       local('Noto Serif CJK SC'), local('Source Han Serif SC');
 }
 
 .app-container {

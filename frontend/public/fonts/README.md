@@ -21,6 +21,18 @@
 `FONT_SONG / FONT_FANGSONG / FONT_HEI / FONT_KAI` 常量决定，
 对应的 `@font-face` 别名写在 [`frontend/src/styles/fonts.css`](../../src/styles/fonts.css)。
 
+### 文档标题字体：方正小标宋简体（可选）
+
+按 GB/T 9704-2012 标准，文档标题应使用「方正小标宋简体」。但这是方正公司的**商业字体**，
+不能随仓库分发。工程采用以下策略：
+
+1. **默认使用开源替代**：`fonts.css` 将 `方正小标宋简体` 族名映射到 `songti.woff2`（思源宋体），
+   浏览器预览时自动使用开源宋体渲染。
+2. **本机字体优先**：如果用户电脑安装了方正小标宋简体，`local("方正小标宋简体")` 会抢先命中，
+   显示效果与 Word/WPS 完全一致。
+3. **后端写入标准族名**：`WpsService.FONT_TITLE = "方正小标宋简体"`，
+   docx 中的字体名与国标一致，用 Word/WPS 打开时自动匹配本机字体。
+
 ## 子集化说明
 
 四个文件都做过子集化，规则是「**保留全部汉字（含扩展区），剔除公文用不到的其它文字**」：
@@ -79,6 +91,7 @@ python3 -c "from fontTools.ttLib import TTFont; f=TTFont('package/ttf/lxgwwenkai
 | 仿宋 | `simfang.ttf` |
 | 黑体 | `simhei.ttf` |
 | 楷体 | `simkai.ttf` |
+| 方正小标宋简体 | `FZXBSJW.TTF`（需单独购买/下载） |
 
 注意：
 - `simsun.ttc` 是**字体集合**，浏览器不支持 `.ttc`，必须先拆出单个 `.ttf`；
@@ -87,9 +100,9 @@ python3 -c "from fontTools.ttLib import TTFont; f=TTFont('package/ttf/lxgwwenkai
 
 ## 已知问题：开发服务器会把缺失字体请求回成 200
 
-`fonts.css` 里每个族名都带 `url(/fonts/*.woff2)` 和 `url(/fonts/*.ttf)` 两个候选。
-若某个候选文件不存在，**Vite 开发服务器会因 SPA history fallback 返回
+`fonts.css` 里每个族名都带 `url(/fonts/*.woff2)` 和 `local(...)` 多个候选。
+若 woff2 文件不存在，**Vite 开发服务器会因 SPA history fallback 返回
 `200 text/html`（index.html）而不是 404**。浏览器拿到 HTML、按字体解析失败后
 会继续走 `src` 链，所以渲染结果仍然正确，只是首屏多几个无用请求。
 
-生产环境（nginx 等）会正常返回 404，无此现象。四个文件都到位后也不会再触发。
+生产环境（nginx 等）会正常返回 404，无此现象。字体文件都到位后也不会再触发。

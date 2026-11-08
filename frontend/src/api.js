@@ -1,3 +1,5 @@
+import { auth } from './auth.js'
+
 const BASE = '/api'
 
 function getToken() {
@@ -13,11 +15,16 @@ async function request(path, options = {}) {
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
   }
-  const res = await fetch(BASE + path, { ...options, headers })
+  let res
+  try {
+    res = await fetch(BASE + path, { ...options, headers })
+  } catch (e) {
+    throw new Error('无法连接后端服务，请确认应用已正常启动')
+  }
   const data = await res.json()
   if (!res.ok) {
     if (res.status === 401 || res.status === 403) {
-      import('./auth.js').then(m => m.auth.requireLogin())
+      auth.requireLogin()
     }
     throw new Error(data.message || '请求失败')
   }
@@ -45,15 +52,20 @@ export async function apiPostBlob(path, body) {
   const token = localStorage.getItem('token')
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const res = await fetch(BASE + path, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body)
-  })
+  let res
+  try {
+    res = await fetch(BASE + path, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
+    })
+  } catch (e) {
+    throw new Error('无法连接后端服务，请确认应用已正常启动')
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: '请求失败' }))
     if (res.status === 401 || res.status === 403) {
-      import('./auth.js').then(m => m.auth.requireLogin())
+      auth.requireLogin()
     }
     throw new Error(err.message || err.error || '请求失败')
   }
@@ -69,10 +81,15 @@ export async function apiGetBlob(path) {
   const token = localStorage.getItem('token')
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const res = await fetch(BASE + path, { headers })
+  let res
+  try {
+    res = await fetch(BASE + path, { headers })
+  } catch (e) {
+    throw new Error('无法连接后端服务，请确认应用已正常启动')
+  }
   if (!res.ok) {
     if (res.status === 401 || res.status === 403) {
-      import('./auth.js').then(m => m.auth.requireLogin())
+      auth.requireLogin()
     }
     throw new Error('下载失败')
   }

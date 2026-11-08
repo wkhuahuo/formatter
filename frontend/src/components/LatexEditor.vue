@@ -232,6 +232,15 @@ async function compile() {
     docxReady.value = false
     docxBlob = null
     loading.value = false
+
+    // 如果是连接错误，3秒后自动重试一次
+    if (e.message.includes('无法连接后端服务')) {
+      setTimeout(() => {
+        if (!docxReady.value && hasAnyContent()) {
+          compile()
+        }
+      }, 3000)
+    }
   }
 }
 

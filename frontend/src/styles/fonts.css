@@ -25,7 +25,6 @@
   src:
     local("SimSun"), local("宋体"), local("NSimSun"),
     url("/fonts/songti.woff2") format("woff2"),
-    url("/fonts/songti.ttf") format("truetype"),
     local("Noto Serif CJK SC"), local("Noto Serif SC"), local("Source Han Serif SC"),
     local("AR PL UMing CN");
 }
@@ -39,7 +38,6 @@
   src:
     local("FangSong"), local("仿宋"), local("FangSong_GB2312"), local("仿宋_GB2312"),
     url("/fonts/fangsong.woff2") format("woff2"),
-    url("/fonts/fangsong.ttf") format("truetype"),
     local("Zhuque Fangsong (technical preview)"), local("朱雀仿宋（预览测试版）"),
     local("Noto Serif CJK SC");
 }
@@ -53,7 +51,6 @@
   src:
     local("SimHei"), local("黑体"),
     url("/fonts/heiti.woff2") format("woff2"),
-    url("/fonts/heiti.ttf") format("truetype"),
     local("Noto Sans CJK SC"), local("Noto Sans SC"), local("Source Han Sans SC"),
     local("WenQuanYi Micro Hei");
 }
@@ -67,6 +64,19 @@
   src:
     local("KaiTi"), local("楷体"), local("KaiTi_GB2312"), local("楷体_GB2312"),
     url("/fonts/kaiti.woff2") format("woff2"),
-    url("/fonts/kaiti.ttf") format("truetype"),
     local("LXGW WenKai"), local("AR PL UKai CN"), local("Noto Serif CJK SC");
+}
+
+/* --- 方正小标宋简体：文档标题（GB/T 9704 标准）
+       开源替代：思源宋体 (Noto Serif CJK SC)，已包含在 songti.woff2 中。
+       若用户本机安装了方正小标宋简体，则优先使用本机字体。 --- */
+@font-face {
+  font-family: "方正小标宋简体";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src:
+    url("/fonts/songti.woff2") format("woff2"),
+    local("方正小标宋简体"), local("FZXiaoBiaoSong-B05S"),
+    local("Noto Serif CJK SC"), local("Source Han Serif SC"), local("SimSun"), local("宋体");
 }

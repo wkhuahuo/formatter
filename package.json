@@ -3,6 +3,7 @@
   "productName": "WpsDocEditor",
   "version": "1.0.0",
   "private": true,
+  "author": "latex-online",
   "description": "WPS 公文编辑器桌面版（Electron 壳 + Spring Boot 文档引擎）",
   "main": "electron/main.js",
   "scripts": {
@@ -11,11 +12,12 @@
     "build:frontend": "npm --prefix frontend install && npm --prefix frontend run build",
     "build:backend": "cd backend && mvn -q clean package -DskipTests",
     "build:jre": "./scripts/build-runtime.sh",
-    "build": "./scripts/build.sh"
+    "build": "./scripts/build.sh",
+    "clean": "powershell -ExecutionPolicy Bypass -File scripts/clean.ps1"
   },
   "devDependencies": {
-    "electron": "^31.0.0",
-    "electron-builder": "^24.13.3"
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0"
   },
   "build": {
     "appId": "com.latexonline.wpsdoc",
@@ -52,5 +54,8 @@
         "zip"
       ]
     }
+  },
+  "dependencies": {
+    "@electron/universal": "^3.0.6"
   }
 }

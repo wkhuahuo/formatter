@@ -18,6 +18,10 @@ echo -e "${CYAN}=====================================${NC}\n"
 # 获取项目根目录
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+# 配置国内镜像（解决 GitHub 下载超时）
+export ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"
+export ELECTRON_BUILDER_BINARIES_MIRROR="https://npmmirror.com/mirrors/electron-builder-binaries/"
+
 # 1. 构建前端
 echo -e "${YELLOW}[1/4] 构建前端 -> frontend/dist${NC}"
 cd "$ROOT/frontend"
